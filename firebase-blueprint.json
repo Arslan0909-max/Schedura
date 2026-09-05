@@ -1,0 +1,27 @@
+{
+  "entities": {
+    "Timetable": {
+      "title": "Timetable",
+      "description": "University academic timetable data containing class slots, instructors, and rooms.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "semester": { "type": "string" },
+        "section": { "type": "string" },
+        "shift": { "type": "string" },
+        "days": { "type": "array" },
+        "timeSlots": { "type": "array" },
+        "slots": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "semester", "section", "shift", "days", "timeSlots", "slots"]
+    }
+  },
+  "firestore": {
+    "/timetables/{timetableId}": {
+      "schema": { "$ref": "#/entities/Timetable" },
+      "description": "Collection of university timetables created by users."
+    }
+  }
+}

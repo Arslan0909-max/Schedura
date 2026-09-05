@@ -1,0 +1,7 @@
+{
+  "name": "Schedura",
+  "description": "AI-powered university timetable generator with conversational scheduling, conflict prevention engine, drag-and-drop workspace, and voice assistant.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
