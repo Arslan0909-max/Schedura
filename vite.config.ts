@@ -25,6 +25,7 @@ function apiMiddlewarePlugin(): Plugin {
 
 export default defineConfig(() => {
   return {
+    base: './',
     plugins: [react(), tailwindcss(), apiMiddlewarePlugin()],
     resolve: {
       alias: {
