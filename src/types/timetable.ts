@@ -60,16 +60,3 @@ export interface UniversityTemplate {
   teachers: { name: string; subject: string; room: string; color: string }[];
   breakSlot: string;
 }
-
-export type MemoryCategory = 'preference' | 'rule' | 'project' | 'note';
-
-export interface BotMemory {
-  id: string;
-  category: MemoryCategory;
-  title: string;
-  content: string;
-  enabled: boolean;
-  source: 'user_defined' | 'auto_learned';
-  createdAt: string;
-  updatedAt?: string;
-}

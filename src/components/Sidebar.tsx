@@ -7,16 +7,14 @@ import {
   Calendar,
   PanelLeftClose,
   PanelLeftOpen,
-  Brain,
   X,
 } from 'lucide-react';
 
 interface SidebarProps {
-  activeTab: 'chat' | 'history' | 'templates' | 'settings' | 'memories';
-  onSelectTab: (tab: 'chat' | 'history' | 'templates' | 'settings' | 'memories') => void;
+  activeTab: 'chat' | 'history' | 'templates' | 'settings';
+  onSelectTab: (tab: 'chat' | 'history' | 'templates' | 'settings') => void;
   onNewChat: () => void;
   timetablesCount: number;
-  memoriesCount?: number;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   width?: number;
@@ -179,43 +177,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <LayoutGrid className="w-4.5 h-4.5 text-zinc-600 shrink-0" />
               {(!isCollapsed || isMobileOpen) && <span className="truncate">Templates</span>}
-            </button>
-
-            {/* AI Bot Memories */}
-            <button
-              id="nav-memories"
-              onClick={() => {
-                onSelectTab('memories');
-                onCloseMobile?.();
-              }}
-              className={`w-full flex items-center ${
-                isCollapsed && !isMobileOpen
-                  ? 'justify-center p-2.5 relative'
-                  : 'justify-between px-3 py-2.5'
-              } rounded-xl text-[14px] font-medium punch-tap transition-all ${
-                activeTab === 'memories'
-                  ? 'bg-indigo-100 text-indigo-950 font-semibold shadow-xs'
-                  : 'text-zinc-700 hover:bg-zinc-200/60'
-              }`}
-              title="Schedura AI Memories & Project Context"
-            >
-              <div
-                className={`flex items-center ${
-                  isCollapsed && !isMobileOpen ? 'justify-center' : 'gap-3'
-                } shrink-0`}
-              >
-                <Brain className="w-4.5 h-4.5 text-indigo-600 shrink-0" />
-                {(!isCollapsed || isMobileOpen) && <span>AI Memories</span>}
-              </div>
-              {typeof memoriesCount === 'number' &&
-                memoriesCount > 0 &&
-                (isCollapsed && !isMobileOpen ? (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-indigo-600 ring-2 ring-white" />
-                ) : (
-                  <span className="px-1.5 py-0.5 text-[10.5px] bg-indigo-200/80 text-indigo-800 rounded-full font-bold">
-                    {memoriesCount}
-                  </span>
-                ))}
             </button>
 
             {/* Settings */}

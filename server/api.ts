@@ -179,7 +179,7 @@ Always respond with both your sharp conversational message and the \`render_time
 // POST /api/chat
 apiRouter.post('/chat', async (req, res) => {
   try {
-    const { message, history = [], globalMemory = [], currentTimetable = null, memories = [] } = req.body;
+    const { message, history = [], globalMemory = [], currentTimetable = null } = req.body;
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ error: 'Message string is required' });
@@ -196,20 +196,10 @@ apiRouter.post('/chat', async (req, res) => {
     // Build contents from conversation history
     const contents: any[] = [];
     
-    // Add context about user memories and global booked slots
+    // Add context about global memory if any
     let memoryContext = '';
-
-    if (memories && Array.isArray(memories) && memories.length > 0) {
-      const activeMems = memories.filter((m: any) => m.enabled !== false);
-      if (activeMems.length > 0) {
-        memoryContext += `\n[LONG-TERM BOT MEMORY & PROJECT CONSTRAINTS]:\n${activeMems
-          .map((m: any) => `- [${(m.category || 'rule').toUpperCase()} - ${m.title}]: ${m.content}`)
-          .join('\n')}\n`;
-      }
-    }
-
     if (globalMemory && globalMemory.length > 0) {
-      memoryContext += `\n[CURRENT GLOBAL MEMORY - ALREADY BOOKED SLOTS]:\n${JSON.stringify(
+      memoryContext = `\n[CURRENT GLOBAL MEMORY - ALREADY BOOKED SLOTS]:\n${JSON.stringify(
         globalMemory.map((s: any) => ({
           semester: s.semester,
           section: s.section,
