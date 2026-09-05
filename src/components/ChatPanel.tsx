@@ -17,6 +17,7 @@ import {
   Zap,
   Radio,
   Check,
+  Brain,
 } from 'lucide-react';
 import { ChatMessage, TimetableData } from '../types/timetable';
 import { voiceService, GoogleVoiceName } from '../services/voiceService';
@@ -28,6 +29,8 @@ interface ChatPanelProps {
   onSendMessage: (text: string, isVoice?: boolean) => void;
   onRenderToCanvas: (data: Partial<TimetableData>) => void;
   activeTimetable: TimetableData | null;
+  onOpenMemoryModal?: () => void;
+  memoryCount?: number;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -37,6 +40,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   onSendMessage,
   onRenderToCanvas,
   activeTimetable,
+  onOpenMemoryModal,
+  memoryCount = 0,
 }) => {
   const [inputText, setInputText] = useState('');
   const [isVoiceActive, setIsVoiceActive] = useState(false);
@@ -173,10 +178,29 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           )}
         </div>
 
-        {/* Schedura Status Badge */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100/80 border border-zinc-200/60 text-[11px] font-medium text-zinc-700">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-semibold text-zinc-800">Schedura AI</span>
+        {/* Right Header Badges & Memory Trigger */}
+        <div className="flex items-center gap-2">
+          {onOpenMemoryModal && (
+            <button
+              onClick={onOpenMemoryModal}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50/80 border border-indigo-200/80 text-indigo-700 hover:bg-indigo-100/90 text-[11px] font-semibold transition-all soft-bounce punch-tap shadow-2xs"
+              title="Catbot Persistent Memory Engine"
+            >
+              <Brain className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+              <span className="hidden xs:inline">Catbot Memory</span>
+              {typeof memoryCount === 'number' && (
+                <span className="px-1.5 py-0.2 rounded-full bg-indigo-600 text-white text-[10px] font-bold">
+                  {memoryCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Schedura Status Badge */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100/80 border border-zinc-200/60 text-[11px] font-medium text-zinc-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-semibold text-zinc-800">Schedura AI</span>
+          </div>
         </div>
       </header>
 

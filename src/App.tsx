@@ -10,9 +10,11 @@ import { WorkspaceCanvas } from './components/WorkspaceCanvas';
 import { TemplatesModal } from './components/TemplatesModal';
 import { HistoryModal } from './components/HistoryModal';
 import { SettingsModal } from './components/SettingsModal';
+import { MemoryModal } from './components/MemoryModal';
 import { TimetableData, TimetableSlot, ChatMessage, Conflict } from './types/timetable';
 import { scanAllConflicts, checkSlotConflict } from './utils/conflictEngine';
 import { voiceService } from './services/voiceService';
+import { memoryService } from './services/memoryService';
 import { MessageSquare, Layout, Menu, Calendar, ChevronDown, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -28,6 +30,8 @@ export default function App() {
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showMemoryModal, setShowMemoryModal] = useState(false);
+  const [memoryCount, setMemoryCount] = useState(() => memoryService.getAll().length);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Engine Settings
@@ -296,6 +300,7 @@ export default function App() {
           message: text,
           history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
           globalMemory: globalSlots,
+          persistentMemories: memoryService.getAll(),
           currentTimetable: activeTimetable,
         }),
       });
@@ -362,7 +367,7 @@ export default function App() {
       const errorMsg: ChatMessage = {
         id: `assistant-err-${Date.now()}`,
         role: 'assistant',
-        content: `I'm on it! I encountered a brief network glitch, but you can continue typing or click a starter prompt below.`,
+        content: `I encountered a connection issue. If you deployed this application on Vercel or GitHub, please verify that your \`GEMINI_API_KEY\` is added under Vercel Project Settings -> Environment Variables.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -517,6 +522,8 @@ export default function App() {
               onSendMessage={handleSendMessage}
               onRenderToCanvas={handleRenderToCanvas}
               activeTimetable={activeTimetable}
+              onOpenMemoryModal={() => setShowMemoryModal(true)}
+              memoryCount={memoryCount}
             />
           </div>
         )}
@@ -570,6 +577,8 @@ export default function App() {
           onSendMessage={handleSendMessage}
           onRenderToCanvas={handleRenderToCanvas}
           activeTimetable={activeTimetable}
+          onOpenMemoryModal={() => setShowMemoryModal(true)}
+          memoryCount={memoryCount}
         />
       </div>
 
@@ -630,6 +639,12 @@ export default function App() {
         setStrictConflict={setStrictConflict}
         autoRerouteRooms={autoRerouteRooms}
         setAutoRerouteRooms={setAutoRerouteRooms}
+      />
+
+      <MemoryModal
+        isOpen={showMemoryModal}
+        onClose={() => setShowMemoryModal(false)}
+        onMemoryUpdated={() => setMemoryCount(memoryService.getAll().length)}
       />
     </div>
   );

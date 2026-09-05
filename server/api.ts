@@ -179,7 +179,7 @@ Always respond with both your sharp conversational message and the \`render_time
 // POST /api/chat
 apiRouter.post('/chat', async (req, res) => {
   try {
-    const { message, history = [], globalMemory = [], currentTimetable = null } = req.body;
+    const { message, history = [], globalMemory = [], persistentMemories = [], currentTimetable = null } = req.body;
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ error: 'Message string is required' });
@@ -196,10 +196,16 @@ apiRouter.post('/chat', async (req, res) => {
     // Build contents from conversation history
     const contents: any[] = [];
     
-    // Add context about global memory if any
+    // Add context about global memory & catbot persistent memories
     let memoryContext = '';
+    if (persistentMemories && persistentMemories.length > 0) {
+      memoryContext += `\n[SAVED CATBOT PERSISTENT MEMORIES & RULES]:\n${persistentMemories
+        .map((m: any, i: number) => `${i + 1}. [${m.category || 'NOTE'}] ${m.title}: ${m.content}`)
+        .join('\n')}\n`;
+    }
+
     if (globalMemory && globalMemory.length > 0) {
-      memoryContext = `\n[CURRENT GLOBAL MEMORY - ALREADY BOOKED SLOTS]:\n${JSON.stringify(
+      memoryContext += `\n[CURRENT GLOBAL MEMORY - ALREADY BOOKED SLOTS]:\n${JSON.stringify(
         globalMemory.map((s: any) => ({
           semester: s.semester,
           section: s.section,
@@ -238,7 +244,7 @@ apiRouter.post('/chat', async (req, res) => {
     });
 
     let response: any = null;
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
     let lastError: any = null;
 
     for (const modelName of modelsToTry) {
