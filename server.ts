@@ -24,9 +24,12 @@ app.get('*', (req, res) => {
 });
 
 const server = http.createServer(app);
-setupLiveWebSocket(server);
 
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+// WebSockets are not supported through a normal Vercel serverless function.
+// Keep the Live WebSocket server for local/self-hosted deployments only.
+if (!process.env.VERCEL) {
+  setupLiveWebSocket(server);
+
   server.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`Schedura server running on port ${PORT}`);
   });
