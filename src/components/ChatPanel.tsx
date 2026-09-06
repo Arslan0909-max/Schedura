@@ -130,10 +130,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const quickPrompts = [
-    'BBA Semester 1 Section A & B timetable',
-    'Morning Shift 8:30 AM to 2:00 PM with Break',
-    'Add Dr. Tariq Khan for Financial Accounting in R-11',
-    'Assign Prof. Sarah Ahmed for Math in R-13',
+    'BBA Semester 1 Section A & B timetable bana do',
+    'Morning Shift 8:30 AM to 2:00 PM with Friday break',
+    'Add Dr. Tariq Khan for DSA & Prof. Sarah for Math',
+    'Off-topic test: "Mausam kaisa hai?" (Test my moody roast!)',
+    'Clingy test: "Main 5 min baad aata hoon" (Try leaving me!)',
   ];
 
   return (
@@ -197,9 +198,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           )}
 
           {/* Schedura Status Badge */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100/80 border border-zinc-200/60 text-[11px] font-medium text-zinc-700">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200/60 dark:border-zinc-700/60 text-[11px] font-medium text-zinc-700 dark:text-zinc-200">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-semibold text-zinc-800">Schedura AI</span>
+            <span className="font-semibold text-zinc-800 dark:text-zinc-100">Schedura AI</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-pink-100 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 font-semibold">
+              Moody & Clingy
+            </span>
           </div>
         </div>
       </header>
@@ -215,21 +219,21 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             {/* Cute Schedura Brand Logo */}
             <div className="relative mb-3.5 soft-bounce group cursor-default">
               <div className="w-13.5 h-13.5 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-pink-500 p-[1.5px] shadow-lg shadow-indigo-500/15">
-                <div className="w-full h-full bg-white rounded-[14.5px] flex items-center justify-center transition-transform group-hover:scale-105 duration-200">
+                <div className="w-full h-full bg-white dark:bg-[#18191E] rounded-[14.5px] flex items-center justify-center transition-transform group-hover:scale-105 duration-200">
                   <div className="relative flex items-center justify-center">
-                    <CalendarCheck2 className="w-6.5 h-6.5 sm:w-7 sm:h-7 text-indigo-600 stroke-[2.2]" />
+                    <CalendarCheck2 className="w-6.5 h-6.5 sm:w-7 sm:h-7 text-indigo-600 dark:text-indigo-400 stroke-[2.2]" />
                   </div>
                 </div>
               </div>
-              <span className="absolute -bottom-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white shadow-xs">
+              <span className="absolute -bottom-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-emerald-500 ring-2 ring-white dark:ring-zinc-900 shadow-xs">
                 <Zap className="w-2.5 h-2.5 text-white fill-white" />
               </span>
             </div>
-            <h2 className="text-[16px] sm:text-[17px] font-semibold text-zinc-900 tracking-tight mb-1">
+            <h2 className="text-[16px] sm:text-[17px] font-semibold text-zinc-900 dark:text-white tracking-tight mb-1">
               Schedura Timetable AI
             </h2>
-            <p className="text-[12.5px] sm:text-[13px] text-zinc-500 leading-relaxed mb-5 sm:mb-6">
-              Your conversational timetable orchestrator. Speak or type your courses, professors, and rooms—I'll render conflict-free schedules in real time.
+            <p className="text-[12px] sm:text-[12.5px] text-zinc-500 dark:text-zinc-400 leading-relaxed mb-4 sm:mb-5">
+              Fiercely professional at university schedules, but delightfully moody & clingy! Out of syllabus baatein mat karna, mujhse baatein karo aur schedule finalize karo.
             </p>
 
             {/* Quick Starters */}

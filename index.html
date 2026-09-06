@@ -12,8 +12,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      (function() {
+        try {
+          const stored = localStorage.getItem('schedura_theme');
+          if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.colorScheme = 'light';
+          }
+        } catch (_) {}
+      })();
+    </script>
   </head>
-  <body class="font-sans antialiased selection:bg-black selection:text-white bg-[#F8F9FA] text-[#1D1D1F]">
+  <body class="font-sans antialiased selection:bg-black selection:text-white bg-[#F8F9FA] dark:bg-[#101114] text-[#1D1D1F] dark:text-[#E4E4E7] transition-colors duration-200">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
