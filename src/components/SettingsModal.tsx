@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, Volume2, Clock, Play, Globe, Sparkles, Key, Check, Moon, Sun } from 'lucide-react';
+import { X, ShieldCheck, Volume2, Clock, Play, Globe, Sparkles, Check, Moon, Sun } from 'lucide-react';
 import { voiceService, GoogleVoiceName } from '../services/voiceService';
-import { getClientApiKey, saveClientApiKey } from '../services/clientGeminiService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -30,14 +29,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [language, setLanguageState] = useState<string>(voiceService.getLanguage());
   const [shiftHours, setShiftHours] = useState('08:30 - 14:00');
   const [isPlayingTest, setIsPlayingTest] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState(() => getClientApiKey());
-  const [isSavedKey, setIsSavedKey] = useState(false);
-
-  const handleSaveApiKey = () => {
-    saveClientApiKey(apiKeyInput);
-    setIsSavedKey(true);
-    setTimeout(() => setIsSavedKey(false), 2000);
-  };
 
   const googleVoices: { id: GoogleVoiceName; name: string; gender: 'Female' | 'Male'; style: string }[] = [
     { id: 'Aoede', name: 'Aoede', gender: 'Female', style: 'Warm & Expressive Female' },
@@ -188,47 +179,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Gemini API Key Configuration for Client-side / Static Hosting */}
-          <div className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 space-y-2.5">
+          {/* AI Backend Security Status */}
+          <div className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-[13.5px] font-semibold text-zinc-900 dark:text-zinc-100">
-                <Key className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <span>Google Gemini API Key (Free Hosted Client)</span>
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>AI Engine Connection</span>
               </div>
-              {isSavedKey && (
-                <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  <Check className="w-3.5 h-3.5" /> Saved!
-                </span>
-              )}
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <Check className="w-3.5 h-3.5" /> Secure Server Proxy
+              </span>
             </div>
             <p className="text-[11.5px] text-zinc-600 dark:text-zinc-400">
-              Enter your free Google Gemini API Key from{' '}
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noreferrer"
-                className="text-indigo-600 dark:text-indigo-400 underline font-medium"
-              >
-                aistudio.google.com
-              </a>{' '}
-              to run AI chat & timetable generation directly on Netlify / GitHub Pages.
+              Gemini API Key is securely managed server-side via environment variables (<code className="font-mono text-emerald-700 dark:text-emerald-300 font-semibold">GEMINI_API_KEY</code>). No API key is needed or stored in your browser.
             </p>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                placeholder="AQ.Ab8RN... or AIzaSy..."
-                value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
-                className="flex-1 px-3 py-1.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-[12.5px] text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              />
-              <button
-                type="button"
-                onClick={handleSaveApiKey}
-                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-all shadow-xs cursor-pointer"
-              >
-                Save Key
-              </button>
-            </div>
           </div>
 
           {/* Google AI Voice Engine Setting */}

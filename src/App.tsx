@@ -599,53 +599,18 @@ export default function App() {
       let assistantText = '';
       let timetableData: any = null;
 
-      // Try Express backend first
-      try {
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text,
-            history: messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
-            globalMemory: globalSlots,
-            persistentMemories: memoryService.getAll(),
-            allTimetables: allTimetables,
-            currentTimetable: activeTimetable,
-          }),
-        });
-
-        if (response.ok) {
-          const contentType = response.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const data = await response.json();
-            assistantText = data.text || '';
-            timetableData = data.timetableData || null;
-
-            if (data.agenticAction) {
-              processAgenticAction(data.agenticAction);
-            }
-          } else {
-            throw new Error('Non-JSON response from server');
-          }
-        } else {
-          throw new Error(`Server status ${response.status}`);
-        }
-      } catch (backendErr) {
-        console.info('Express backend unavailable or failed. Switching to Direct Client Gemini Engine:', backendErr);
-        // Fallback to Direct Client-side Gemini API call!
-        const clientRes = await sendClientGeminiMessage({
-          message: text,
-          history: messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
-          globalMemory: globalSlots,
-          persistentMemories: memoryService.getAll(),
-          allTimetables: allTimetables,
-          currentTimetable: activeTimetable,
-        });
-        assistantText = clientRes.text;
-        timetableData = clientRes.timetableData;
-        if (clientRes.agenticAction) {
-          processAgenticAction(clientRes.agenticAction);
-        }
+      const clientRes = await sendClientGeminiMessage({
+        message: text,
+        history: messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
+        globalMemory: globalSlots,
+        persistentMemories: memoryService.getAll(),
+        allTimetables: allTimetables,
+        currentTimetable: activeTimetable,
+      });
+      assistantText = clientRes.text;
+      timetableData = clientRes.timetableData;
+      if (clientRes.agenticAction) {
+        processAgenticAction(clientRes.agenticAction);
       }
 
       let detectedConflicts: Conflict[] = [];
@@ -690,12 +655,7 @@ export default function App() {
       }
     } catch (err: any) {
       console.error('Chat error:', err);
-      let errorContent = `I encountered an issue connecting to Gemini AI.`;
-      if (err.message === 'MISSING_API_KEY') {
-        errorContent = `🔑 **Gemini API Key Required**: Please click **Settings (⚙️)** in the sidebar and enter your free Gemini API Key (from \`aistudio.google.com\`) to activate AI timetable generation on this hosted site!`;
-      } else if (err.message) {
-        errorContent += ` Detail: ${err.message}`;
-      }
+      const errorContent = `I encountered an issue processing your request. Detail: ${err?.message || 'Server connection issue'}`;
 
       const errorMsg: ChatMessage = {
         id: `assistant-err-${Date.now()}`,

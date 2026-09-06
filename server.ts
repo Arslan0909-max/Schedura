@@ -27,6 +27,10 @@ app.get('*', (req, res) => {
 const server = http.createServer(app);
 setupLiveWebSocket(server);
 
-server.listen(Number(PORT), '0.0.0.0', () => {
-  console.log(`Schedura server with Gemini 3.1 Flash Live running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  server.listen(Number(PORT), '0.0.0.0', () => {
+    console.log(`Schedura server running on port ${PORT}`);
+  });
+}
+
+export default app;
