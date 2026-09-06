@@ -1,81 +1,30 @@
-import express from 'express';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type, Modality } from '@google/genai';
+import type { FunctionDeclaration } from '@google/genai';
+import express, { Request, Response, NextFunction } from 'express';
 
-const apiRouter = express.Router();
+export const apiRouter = express.Router();
+export const apiApp = express();
+apiApp.use(express.json({ limit: '10mb' }));
+apiApp.use(express.urlencoded({ extended: true, limit: '10mb' }));
+const guaranteeJsonResponse = (req: Request, res: Response, next: NextFunction) => { if (typeof (res as any).status !== 'function') (res as any).status = function(code:number){res.statusCode=code;return res;}; if(typeof(res as any).json!=='function')(res as any).json=function(data:any){if(!res.headersSent)res.setHeader('Content-Type','application/json; charset=utf-8');res.end(JSON.stringify(data));return res;}; next(); };
+apiApp.use(guaranteeJsonResponse); apiRouter.use(guaranteeJsonResponse);
+const fallbackBodyParser=(req:Request,res:Response,next:NextFunction)=>{if(req.body&&Object.keys(req.body).length>0)return next();if(['POST','PUT','PATCH'].includes(req.method)){let bodyStr='';req.on('data',c=>bodyStr+=c);req.on('end',()=>{if(bodyStr&&(!req.body||Object.keys(req.body).length===0)){try{req.body=JSON.parse(bodyStr)}catch{req.body={}}}next()});req.on('error',()=>next())}else next()};
+apiApp.use(fallbackBodyParser); apiRouter.use(fallbackBodyParser);
+function getAIClient(){const apiKey=process.env.GEMINI_API_KEY;if(!apiKey)return null;return new GoogleGenAI({apiKey,httpOptions:{headers:{'User-Agent':'aistudio-build'}}})}
 
-function getAIClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-  return new GoogleGenAI({ apiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
-}
+const renderTimetableDeclaration: FunctionDeclaration={name:'render_timetable_to_canvas',description:'Renders or updates the live visual timetable grid on the right-side WorkSpace canvas. Call whenever the user asks to create, update, or schedule classes, teachers, rooms, or shifts.',parameters:{type:Type.OBJECT,properties:{semester:{type:Type.STRING},section:{type:Type.STRING},shift:{type:Type.STRING},days:{type:Type.ARRAY,items:{type:Type.STRING}},timeSlots:{type:Type.ARRAY,items:{type:Type.STRING}},slots:{type:Type.ARRAY,items:{type:Type.OBJECT,properties:{day:{type:Type.STRING},timeSlot:{type:Type.STRING},subject:{type:Type.STRING},teacher:{type:Type.STRING},room:{type:Type.STRING},isBreak:{type:Type.BOOLEAN},breakLabel:{type:Type.STRING},color:{type:Type.STRING}},required:['day','timeSlot','subject']}}},required:['semester','section','slots']}};
+const executeAgenticActionDeclaration: FunctionDeclaration={name:'execute_agentic_action',description:'Executes autonomous in-app UI or Workspace operations such as editing/deleting/adding timetable slots, clearing canvas, saving versions, voice mode, dark mode, modals, or views.',parameters:{type:Type.OBJECT,properties:{actionType:{type:Type.STRING},targetModal:{type:Type.STRING},targetView:{type:Type.STRING},sampleType:{type:Type.STRING},slotData:{type:Type.OBJECT},shortResponseText:{type:Type.STRING}},required:['actionType']}};
+const SYSTEM_PROMPT=`You are Schedura AI, an intelligent university timetable architect and autonomous workspace controller powered by Google Gemini. Answer general questions intelligently. For scheduling, check teacher and room clashes before rendering. Use render_timetable_to_canvas for schedules and execute_agentic_action for UI/workspace actions. Never force teacher or room double-booking. Match the user's language naturally, including Roman Urdu and English.`;
 
-apiRouter.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'schedura-api', geminiConfigured: Boolean(process.env.GEMINI_API_KEY) });
-});
+apiRouter.get('/health',(_req,res)=>res.json({status:'ok',service:'schedura-api',geminiConfigured:Boolean(process.env.GEMINI_API_KEY)}));
 
-apiRouter.post(['/chat', '/api/chat'], async (req, res) => {
-  try {
-    const { message, history = [], globalMemory = [], persistentMemories = [], allTimetables = [], currentTimetable = null } = req.body;
-    if (!message || typeof message !== 'string') return res.status(400).json({ error: 'Message string is required' });
+apiRouter.post(['/chat','/api/chat'],async(req,res)=>{try{const{message,history=[],globalMemory=[],persistentMemories=[],allTimetables=[],currentTimetable=null}=req.body;if(!message||typeof message!=='string')return res.status(400).json({error:'Message string is required'});const ai=getAIClient();if(!ai)return res.json(generateSmartFallback(message,history,globalMemory,currentTimetable));let memoryContext='';if(persistentMemories.length)memoryContext+=`\n[SAVED MEMORIES]\n${JSON.stringify(persistentMemories)}\n`;if(allTimetables.length)memoryContext+=`\n[HISTORICAL TIMETABLES]\n${JSON.stringify(allTimetables)}\n`;if(globalMemory.length)memoryContext+=`\n[BOOKED SLOTS]\n${JSON.stringify(globalMemory)}\n`;if(currentTimetable)memoryContext+=`\n[CURRENT TIMETABLE]\n${JSON.stringify(currentTimetable)}\n`;const contents:any[]=history.slice(-8).map((h:any)=>({role:h.role==='user'?'user':'model',parts:[{text:h.content}]}));contents.push({role:'user',parts:[{text:`${memoryContext}\nUser Request: ${message}`} ]});let response:any=null,lastError:any=null;for(const modelName of ['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-flash-latest']){try{response=await ai.models.generateContent({model:modelName,contents,config:{systemInstruction:SYSTEM_PROMPT,temperature:.7,tools:[{functionDeclarations:[renderTimetableDeclaration,executeAgenticActionDeclaration]}]}});if(response)break}catch(e:any){lastError=e;console.warn(`Model ${modelName} failed:`,e?.message||e)}}if(!response)throw lastError||new Error('No Gemini model available');let assistantText=response.text||'';let canvasTriggerData=null;let agenticActionData=null;for(const fc of response.functionCalls||[]){if(fc.name==='render_timetable_to_canvas')canvasTriggerData=normalizeAndEnrichTimetable(fc.args,message,globalMemory);else if(fc.name==='execute_agentic_action'){agenticActionData=fc.args;if(fc.args.shortResponseText&&!assistantText)assistantText=fc.args.shortResponseText}}if(!canvasTriggerData&&isScheduleIntent(message))canvasTriggerData=buildDefaultTimetable(message,globalMemory,currentTimetable);return res.json({text:assistantText||'Request processed successfully.',timetableData:canvasTriggerData,agenticAction:agenticActionData})}catch(error:any){console.error('Gemini chat API error:',error?.message||error);return res.status(502).json({error:'Gemini backend request failed',detail:error?.message||'Unknown Gemini error'})}});
 
-    const ai = getAIClient();
-    if (!ai) return res.json({ text: 'Gemini is not configured on the server yet. Add GEMINI_API_KEY in Vercel Environment Variables.', timetableData: null, agenticAction: null });
+apiRouter.post(['/tts','/api/tts'],async(req,res)=>{try{const{text,voiceName='Aoede'}=req.body;if(!text)return res.status(400).json({error:'Text is required for TTS'});const ai=getAIClient();if(!ai)return res.status(503).json({error:'GEMINI_API_KEY is not configured on the server.'});const cleanText=String(text).replace(/[*_#`~]/g,'').replace(/\[.*?\]/g,'').replace(/https?:\/\/\S+/g,'').replace(/\s+/g,' ').trim().slice(0,450);const voices=['Aoede','Zephyr','Puck','Charon','Kore','Fenrir'];const selectedVoice=voices.includes(voiceName)?voiceName:'Aoede';const response:any=await ai.models.generateContent({model:'gemini-3.1-flash-tts-preview',contents:[{parts:[{text:cleanText}]}],config:{responseModalities:[Modality.AUDIO],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:selectedVoice}}}}});const audio=response.candidates?.[0]?.content?.parts?.find((p:any)=>p.inlineData)?.inlineData?.data;if(!audio)return res.status(502).json({error:'Gemini TTS returned no audio.'});return res.json({audio,format:'pcm_24k',provider:'gemini_tts',voiceName:selectedVoice})}catch(error:any){console.error('Gemini TTS API error:',error?.message||error);return res.json({audio:null,fallbackToWebSpeech:true,provider:'web_speech_fallback'})}});
 
-    const contents: any[] = [];
-    for (const h of history.slice(-8)) {
-      contents.push({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.content }] });
-    }
-    contents.push({
-      role: 'user',
-      parts: [{ text: `${persistentMemories.length ? `Saved memories:\n${JSON.stringify(persistentMemories)}\n` : ''}${allTimetables.length ? `Historical timetables:\n${JSON.stringify(allTimetables)}\n` : ''}${globalMemory.length ? `Booked slots:\n${JSON.stringify(globalMemory)}\n` : ''}${currentTimetable ? `Current timetable:\n${JSON.stringify(currentTimetable)}\n` : ''}\nUser Request: ${message}` }],
-    });
+function isScheduleIntent(message:string){const l=(message||'').toLowerCase();return ['bba','bscs','timetable','schedule','section','semester','create','generate','assign','render','grid','classes','class','faculty','morning','evening','shift','banao','blueprint'].some(x=>l.includes(x))}
+function normalizeAndEnrichTimetable(raw:any,userPrompt:string,globalMemory:any[]=[]){if(!raw||typeof raw!=='object')return buildDefaultTimetable(userPrompt,globalMemory);const l=(userPrompt||'').toLowerCase();const semester=raw.semester||(l.includes('bscs')?'BSCS Semester 3':l.includes('bba')?'BBA Semester 1':'University Program Sem 1');const section=raw.section||(l.includes('section b')?'Section B':'Section A');const shift=raw.shift||(l.includes('evening')?'Evening':'Morning');const days=Array.isArray(raw.days)&&raw.days.length?raw.days:['Monday','Tuesday','Wednesday','Thursday','Friday'];const timeSlots=Array.isArray(raw.timeSlots)&&raw.timeSlots.length?raw.timeSlots:['08:30 - 09:30','09:30 - 10:30','10:30 - 11:30','11:30 - 12:00','12:00 - 01:00','01:00 - 02:00'];const slots=(raw.slots||[]).map((s:any,i:number)=>({...s,id:s.id||`slot-${Date.now()}-${i}`,day:s.day||days[i%days.length],timeSlot:s.timeSlot||timeSlots[i%timeSlots.length],subject:s.subject||'General Lecture',teacher:s.teacher||'Faculty Staff',room:s.room||'R-11',semester,section,shift}));return {id:raw.id||`timetable-${Date.now()}`,semester,section,shift,days,timeSlots,slots,conflictNotes:raw.conflictNotes||[],createdAt:raw.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()}}
+function buildDefaultTimetable(message:string,globalMemory:any[]=[],currentTimetable:any=null){const l=(message||'').toLowerCase();const semester=l.includes('bscs')?'BSCS Semester 3':l.includes('bba')?'BBA Semester 1':currentTimetable?.semester||'BBA Semester 1';const section=l.includes('section b')?'Section B':currentTimetable?.section||'Section A';const shift=l.includes('evening')?'Evening':currentTimetable?.shift||'Morning';const days=['Monday','Tuesday','Wednesday','Thursday','Friday'];const timeSlots=['08:30 - 09:30','09:30 - 10:30','10:30 - 11:30','11:30 - 12:00','12:00 - 01:00','01:00 - 02:00'];const subjects=['Financial Accounting','Business Mathematics','Principles of Management','Business Communication','Microeconomics','IT in Business & Lab'];const slots:any[]=[];days.forEach((day,di)=>timeSlots.forEach((time,si)=>slots.push({id:`slot-${di}-${si}-${Date.now()}`,day,timeSlot:time,subject:time==='11:30 - 12:00'?'Break & Prayer':subjects[(di*2+si)%subjects.length],teacher:time==='11:30 - 12:00'?'':'Faculty Staff',room:time==='11:30 - 12:00'?'Campus Commons':`R-${11+(si%6)}`,isBreak:time==='11:30 - 12:00',breakLabel:time==='11:30 - 12:00'?'Morning Break & Prayer':undefined,semester,section,shift})));return {id:`timetable-${Date.now()}`,semester,section,shift,days,timeSlots,slots,conflictNotes:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}}
+function generateSmartFallback(message:string,_history:any[],globalMemory:any[],currentTimetable:any){return {text:`I’m Schedura AI. Gemini is temporarily unavailable, so I can still keep the scheduling workflow alive locally for “${message}”.`,timetableData:isScheduleIntent(message)?buildDefaultTimetable(message,globalMemory,currentTimetable):null,agenticAction:null}}
 
-    let response: any = null;
-    let lastError: any = null;
-    // Prefer a current stable Flash model, then fall back if the project/account has a different model set.
-    for (const modelName of ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']) {
-      try {
-        response = await ai.models.generateContent({ model: modelName, contents, config: { temperature: 0.7 } });
-        if (response) break;
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`Chat model ${modelName} failed:`, err?.message || err);
-      }
-    }
-    if (!response) throw lastError || new Error('No Gemini model was available');
-
-    return res.json({ text: response.text || 'Request processed successfully.', timetableData: null, agenticAction: null });
-  } catch (error: any) {
-    console.error('Gemini chat API error:', error?.message || error);
-    return res.status(502).json({ error: 'Gemini backend request failed', detail: error?.message || 'Unknown Gemini error' });
-  }
-});
-
-apiRouter.post(['/tts', '/api/tts'], async (req, res) => {
-  try {
-    const { text, voiceName = 'Aoede' } = req.body;
-    if (!text) return res.status(400).json({ error: 'Text is required for TTS' });
-    const ai = getAIClient();
-    if (!ai) return res.status(503).json({ error: 'GEMINI_API_KEY is not configured on the server.' });
-
-    const cleanText = String(text).replace(/[*_#`~]/g, '').replace(/\[.*?\]/g, '').replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim().slice(0, 1200);
-    const supportedVoices = ['Aoede', 'Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir'];
-    const selectedVoice = supportedVoices.includes(voiceName) ? voiceName : 'Aoede';
-    const response: any = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-tts',
-      contents: [{ parts: [{ text: cleanText }] }],
-      config: {
-        responseModalities: ['AUDIO'],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } },
-      },
-    });
-    const audio = response?.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData)?.inlineData?.data;
-    if (!audio) return res.status(502).json({ error: 'Gemini TTS returned no audio.' });
-    return res.json({ audio, format: 'pcm_24k' });
-  } catch (error: any) {
-    console.error('Gemini TTS API error:', error?.message || error);
-    return res.status(502).json({ error: 'Gemini TTS request failed', detail: error?.message || 'Unknown TTS error' });
-  }
-});
-
-export { apiRouter };
+apiApp.use('/api',apiRouter);apiApp.use(apiRouter);
