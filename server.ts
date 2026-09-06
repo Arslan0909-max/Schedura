@@ -2,9 +2,8 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import dotenv from 'dotenv';
-import { apiApp } from './server/api.ts';
-import { setupLiveWebSocket } from './server/liveApi.ts';
-
+import { apiApp } from './server/api';
+import { setupLiveWebSocket } from './server/liveApi';
 dotenv.config();
 
 const app = express();
