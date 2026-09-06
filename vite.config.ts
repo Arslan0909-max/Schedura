@@ -25,7 +25,7 @@ function apiMiddlewarePlugin(): Plugin {
 
 export default defineConfig(() => {
   return {
-    base: '/Schedura/',
+    base: '/',
     plugins: [react(), tailwindcss(), apiMiddlewarePlugin()],
     resolve: {
       alias: {
