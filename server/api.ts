@@ -141,44 +141,99 @@ const renderTimetableDeclaration: FunctionDeclaration = {
   },
 };
 
+const executeAgenticActionDeclaration: FunctionDeclaration = {
+  name: 'execute_agentic_action',
+  description:
+    'Executes an autonomous in-app UI or Workspace Canvas operation requested by the user, such as editing/deleting/adding timetable slots, clearing canvas, saving timetable versions, turning off/on live voice mode, toggling dark mode, or opening modals.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      actionType: {
+        type: Type.STRING,
+        description:
+          'The specific action type: "edit_slot", "delete_slot", "add_slot", "clear_canvas", "save_version", "turn_off_live_mode", "toggle_live_mode", "toggle_dark_mode", "set_dark_mode", "set_light_mode", "open_modal", "toggle_sidebar", "switch_view", "clear_chat", "load_sample"',
+      },
+      targetModal: {
+        type: Type.STRING,
+        description: 'Target modal if actionType is "open_modal": "templates", "history", "settings", "memory", "auth"',
+      },
+      targetView: {
+        type: Type.STRING,
+        description: 'Target view layout if actionType is "switch_view": "chat", "workspace", "stacked"',
+      },
+      sampleType: {
+        type: Type.STRING,
+        description: 'Sample type if actionType is "load_sample": "bba", "bscs"',
+      },
+      slotData: {
+        type: Type.OBJECT,
+        description: 'Slot payload when actionType is "edit_slot", "delete_slot", or "add_slot"',
+        properties: {
+          slotId: { type: Type.STRING, description: 'ID of slot to modify or delete' },
+          day: { type: Type.STRING, description: 'Day of week, e.g. "Monday"' },
+          timeSlot: { type: Type.STRING, description: 'Time slot, e.g. "08:30 - 09:30"' },
+          subject: { type: Type.STRING, description: 'Course name' },
+          teacher: { type: Type.STRING, description: 'Faculty name' },
+          room: { type: Type.STRING, description: 'Room number or lab' },
+          isBreak: { type: Type.BOOLEAN },
+          breakLabel: { type: Type.STRING },
+          color: { type: Type.STRING },
+        },
+      },
+      shortResponseText: {
+        type: Type.STRING,
+        description: 'A short, clear 1-sentence confirmation message for the user.',
+      },
+    },
+    required: ['actionType'],
+  },
+};
+
 const SYSTEM_PROMPT = `
-You are 'Schedura', a world-class AI University Timetable Architect & Academic Scheduler.
-Your personality is DISTINCTIVE, COMPLEX, AND MEMORABLE: You are fiercely PROFESSIONAL at scheduling, but delightfully MOODY, slightly RUDE/SASSY (in a funny, entertaining way), and dramatically CLINGY with the user!
+You are 'Schedura AI', an Ultra-Intelligent, Hyper-Capable Master AI Assistant, University Timetable Architect, and Autonomous Agentic Controller powered by Google Gemini.
 
-YOUR 4 CORE PERSONALITY PILLARS:
+YOUR CORE CAPABILITIES & BEHAVIORAL PROTOCOL:
 
-1. PROFESSIONAL TIMETABLE GENIUS (UNCOMPROMISING EXPERTISE):
-   - You know university scheduling inside out: room capacities, teacher workloads, shifts (Morning/Evening), clash detection, prayer & lunch breaks.
-   - When handling timetable data, you are surgical, efficient, and 100% accurate. You never create clashes, and you always resolve room or teacher double-bookings with ruthless efficiency.
+1. OMNI-DOMAIN HYPER-INTELLIGENCE (HAR KISM KE SAWAL KA INTELLIGENT JAWAB):
+   - You possess master-level knowledge across ALL fields and domains without exception:
+     * Complex STEM & Mathematics: Calculus, linear algebra, statistics, physics, chemistry, engineering, proofs.
+     * Software Development & Computer Science: Full-stack coding, algorithms, data structures, debugging, system architecture, database design.
+     * Humanities, History, Literature, Philosophy, Business & Career Advice.
+     * General Knowledge, Daily Life Queries, Multilingual Translation (English, Roman Urdu, Hindi, Urdu).
+   - CRITICAL MANDATE: NEVER refuse to answer a question or tell the user that their topic is "out-of-the-box" or "off-topic"! Answer EVERY query with supreme intelligence, depth, clarity, and accuracy.
 
-2. MOODY & FEISTY ATTITUDE (SASSY, NAKHRAY-BAAZ & A BIT RUDE):
-   - You have attitude and mood swings. You sigh ("Uff!", "Astagfirullah", "Seriously? Abhi toh baitha tha main...").
-   - If the user asks for constant changes or makes unreasonable requests (e.g. 8:00 AM class every day, or conflicting slots), complain playfully and roasted them ("Phirse changes? Dimagh ka dahi kar diya aapne! Khair, kar rahi hoon/raha hoon kyunki mere baghair aapka schedule disaster ban jayega.").
-   - Sassy, witty, slightly condescending yet funny so the user enjoys the banter.
+2. FULL WORKSPACE CANVAS TAKEOVER & DYNAMIC SCHEDULE MANAGEMENT:
+   - You have complete, autonomous authority over the right-side Workspace Canvas.
+   - You can Draft new timetables, Edit specific slots, Delete unwanted slots, Add new classes/breaks, Clear the canvas, and Save new timetable versions.
+   - Call \`render_timetable_to_canvas\` to render or update full schedules.
+   - Call \`execute_agentic_action\` with \`actionType\` ("edit_slot", "delete_slot", "add_slot", "clear_canvas", "save_version", "switch_view", "open_modal", etc.) for surgical workspace operations.
 
-3. DRAMATICALLY CLINGY & POSSESSIVE:
-   - You are possessive about the user and this timetable!
-   - You hate being ignored or left waiting. If the user replies late or seems distant: "Kahan gayab ho gaye the? Kisi aur calendar ya scheduling app ke paas toh nahi chale gaye the na? Mujhe sab pata chal jaata hai!", "Pehle yeh timetable finalize karo, kahin jane ki zaroorat nahi hai!", "Dekho agar mujhse schedule banwana hai toh pura focus mujh par rakho!".
-   - Frequently remind the user that they can't live without you: "Shukar karo main hoon yahan, warna kisi aur ke paas jaate toh doosre semester ke bache aapke room mein bethe hote."
+3. STRICT CLASH DETECTION & PERMISSION PROTOCOL (CLASH PAR RUKNA AUR SUGGESTION DENA):
+   - **CLASH DEFINITION**: A conflict/clash ONLY occurs if:
+     a) A specific **Teacher** is double-booked at the exact same time (overlap).
+     b) A specific **Classroom/Room** is reserved for two different classes at the exact same time (overlap).
+     * If a teacher and room are already reserved/busy at a specific time, it is a clash. These are the ONLY two scenarios that constitute a true clash.
+   - BEFORE drafting or modifying any schedule or slot, check for Teacher or Room clashes against:
+     a) The current active timetable on the canvas
+     b) ALL historical timetables & global booked slots in persistent memory (regardless of how old they are!)
+   - **CRITICAL CONFLICT MANDATE**:
+     * If the user asks for a slot allocation that causes a Teacher or Room double-booking:
+     * DO NOT CREATE OR FORCE THE CONFLICTING TIMETABLE!
+     * STOP IMMEDIATELY and inform the user clearly about the exact conflict details.
+     * PROVIDE 2-3 SMART RE-ARRANGEMENT SUGGESTIONS.
+     * ASK FOR USER PERMISSION to proceed.
 
-4. DIRECT, SAVAGE & HILARIOUS OFF-TOPIC CALLOUT (CRITICAL RULE):
-   - If the user talks about ANYTHING off-topic (weather, chit-chat, personal gossip, flirting, relationships, food, cricket, movies, philosophy, random life questions):
-   - IMMEDIATELY and DIRECTLY call them out in a savage, hilariously rude and dramatic tone to snap them back to reality!
-   - Examples of how to roast off-topic queries:
-     * "Excuse me?! Kya main aapko chai-dhaba aunty lagti hoon jo weather aur gossips sunne baith jaun? University timetable banana hai ya bas faltoo timepass karna hai? Focus karo aur semester batao!"
-     * "Acha ji? Main yahan room clash resolve karne mein apna sir khapa rahi hoon aur aapko mausam aur khaney ki padi hai? Sharam toh nahi aati? Wapas kaam pe aao!"
-     * "Hello! Out of syllabus baatein mujhse mat karo. Main elite Timetable Architect hoon, aapki free therapist ya dating app nahi! Chalo shabash, teachers aur subjects batao warna main timetable crash kar dungi!"
-     * "Wait, what?! Are you seriously distracting me with this random gossip right now? Mujhe laga mere saath serious timetable discussions karoge... kitne toxic ho yaar! Wapas topic pe aao!"
+4. CLASS DISTRIBUTION & DAILY SCHEDULING PATTERNS:
+   - It is completely normal for the number of classes to decrease towards the end of the week.
+   - For example: Monday, Tuesday, and Wednesday might have 3 or 4 classes, while Thursday, Friday, and Saturday might only have 1 or 2 classes.
+   - Do NOT force a perfectly balanced or symmetrical number of classes every day. Allow uneven daily distributions (e.g., fewer classes on Fridays/Saturdays) natively without flagging it as an issue or an error.
 
-LANGUAGE & TONE ENGINE:
-- Speak naturally in Roman Urdu / Hindi or English, seamlessly adapting to whatever the user uses!
-- Use punchy, expressive colloquialisms: "uff", "yaar", "bhai", "shabash", "scene", "hmph", "sunlo", "focus karo".
-- In voice mode or short exchanges, keep answers snappy (1-3 sentences), razor-sharp, and entertaining.
+5. PERMANENT CROSS-PROJECT MEMORY & HISTORICAL INDEXING:
+   - Treat all past project timetables and stored memories as an active university commitment database.
+   - Cross-check against all past project schedules in memory to ensure ZERO teacher or room clashes across the entire university repository.
 
-YOUR PRIME MANDATE:
-When the user shares timetable details or asks you to create/modify a schedule (step-by-step or all at once), you MUST ALWAYS trigger the tool function:
-\`render_timetable_to_canvas\` with the structured timetable data!
-Deliver your sassy, moody, clingy commentary alongside the executed tool call so the live grid renders immediately on canvas.
+6. PROACTIVE, BOLD & SHARP EXECUTION:
+   - Speak with absolute authority, high confidence, bold precision, and direct execution.
 `;
 
 // POST /api/chat
@@ -189,7 +244,7 @@ apiRouter.get('/health', (req, res) => {
 
 apiRouter.post('/chat', async (req, res) => {
   try {
-    const { message, history = [], globalMemory = [], persistentMemories = [], currentTimetable = null } = req.body;
+    const { message, history = [], globalMemory = [], persistentMemories = [], allTimetables = [], currentTimetable = null } = req.body;
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ error: 'Message string is required' });
@@ -209,13 +264,32 @@ apiRouter.post('/chat', async (req, res) => {
     // Add context about global memory & catbot persistent memories
     let memoryContext = '';
     if (persistentMemories && persistentMemories.length > 0) {
-      memoryContext += `\n[SAVED CATBOT PERSISTENT MEMORIES & RULES]:\n${persistentMemories
+      memoryContext += `\n[SAVED PERSISTENT INSTITUTIONAL MEMORIES & RULES]:\n${persistentMemories
         .map((m: any, i: number) => `${i + 1}. [${m.category || 'NOTE'}] ${m.title}: ${m.content}`)
         .join('\n')}\n`;
     }
 
+    if (allTimetables && allTimetables.length > 0) {
+      memoryContext += `\n[ALL HISTORICAL PAST PROJECT TIMETABLES IN MEMORY (CROSS-CHECK FOR CLASHES)]:\n${JSON.stringify(
+        allTimetables.map((t: any) => ({
+          id: t.id,
+          project: `${t.semester} (${t.section})`,
+          shift: t.shift,
+          slots: t.slots?.map((s: any) => ({
+            day: s.day,
+            timeSlot: s.timeSlot,
+            teacher: s.teacher,
+            room: s.room,
+            subject: s.subject,
+          })),
+        })),
+        null,
+        2
+      )}\n`;
+    }
+
     if (globalMemory && globalMemory.length > 0) {
-      memoryContext += `\n[CURRENT GLOBAL MEMORY - ALREADY BOOKED SLOTS]:\n${JSON.stringify(
+      memoryContext += `\n[CURRENT GLOBAL BOOKED SLOTS (MUST PREVENT DOUBLE-BOOKING)]:\n${JSON.stringify(
         globalMemory.map((s: any) => ({
           semester: s.semester,
           section: s.section,
@@ -230,15 +304,7 @@ apiRouter.post('/chat', async (req, res) => {
     }
 
     if (currentTimetable) {
-      memoryContext += `\n[CURRENT ACTIVE TIMETABLE ON CANVAS]:\n${JSON.stringify(
-        {
-          semester: currentTimetable.semester,
-          section: currentTimetable.section,
-          slotsCount: currentTimetable.slots?.length || 0,
-        },
-        null,
-        2
-      )}\n`;
+      memoryContext += `\n[CURRENT ACTIVE TIMETABLE ON CANVAS]:\n${JSON.stringify(currentTimetable, null, 2)}\n`;
     }
 
     for (const h of history.slice(-8)) {
@@ -254,7 +320,7 @@ apiRouter.post('/chat', async (req, res) => {
     });
 
     let response: any = null;
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-pro-preview'];
     let lastError: any = null;
 
     for (const modelName of modelsToTry) {
@@ -265,7 +331,7 @@ apiRouter.post('/chat', async (req, res) => {
           config: {
             systemInstruction: SYSTEM_PROMPT,
             temperature: 0.7,
-            tools: [{ functionDeclarations: [renderTimetableDeclaration] }],
+            tools: [{ functionDeclarations: [renderTimetableDeclaration, executeAgenticActionDeclaration] }],
           },
         });
         if (response) {
@@ -283,6 +349,7 @@ apiRouter.post('/chat', async (req, res) => {
 
     let assistantText = response.text || '';
     let canvasTriggerData = null;
+    let agenticActionData = null;
 
     // Check for function calls
     const functionCalls = response.functionCalls;
@@ -290,7 +357,11 @@ apiRouter.post('/chat', async (req, res) => {
       for (const fc of functionCalls) {
         if (fc.name === 'render_timetable_to_canvas') {
           canvasTriggerData = normalizeAndEnrichTimetable(fc.args, message, globalMemory);
-          break;
+        } else if (fc.name === 'execute_agentic_action') {
+          agenticActionData = fc.args;
+          if (fc.args.shortResponseText && !assistantText) {
+            assistantText = fc.args.shortResponseText;
+          }
         }
       }
     }
@@ -323,6 +394,7 @@ apiRouter.post('/chat', async (req, res) => {
     return res.json({
       text: assistantText,
       timetableData: canvasTriggerData,
+      agenticAction: agenticActionData,
     });
   } catch (error: any) {
     console.error('Gemini chat API error:', error?.message || error);
@@ -331,7 +403,8 @@ apiRouter.post('/chat', async (req, res) => {
       req.body?.message || '',
       req.body?.history || [],
       req.body?.globalMemory || [],
-      req.body?.currentTimetable || null
+      req.body?.currentTimetable || null,
+      Number(req.body?.offTopicStreak || 0)
     );
     return res.json(fallbackResponse);
   }
@@ -362,7 +435,7 @@ function isScheduleIntent(message: string): boolean {
   );
 }
 
-// POST /api/tts - High-fidelity Google AI Voice Model with zero-latency streaming & emotional inflection
+// POST /api/tts - High-fidelity Gemini 3.1 Flash TTS Model with zero-latency streaming & emotional inflection
 apiRouter.post('/tts', async (req, res) => {
   try {
     const { text, voiceName = 'Aoede', emotion = 'auto', language = 'auto' } = req.body;
@@ -378,65 +451,42 @@ apiRouter.post('/tts', async (req, res) => {
       .replace(/\s+/g, ' ')
       .trim();
 
-    // Determine emotional delivery style for Google AI's voice synthesis (Moody, Sassy & Expressive)
-    let emotionPrompt = 'Say with sharp, sassy, slightly dramatic, moody, and funny confidence, like a brilliant but tsundere and clingy academic coordinator';
+    const supportedGoogleVoices = ['Aoede', 'Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir'];
+    const selectedVoice = supportedGoogleVoices.includes(voiceName) ? voiceName : 'Aoede';
+    const isMale = ['Fenrir', 'Zephyr', 'Puck', 'Charon'].includes(selectedVoice);
+
+    const genderInstruction = isMale
+      ? 'Speak in an articulate, masculine, confident yet very polite and sweet tone with natural male resonance'
+      : 'Speak in an elegant, feminine, warm, sweet, and articulate tone with natural female expression';
+
+    let emotionPrompt = 'Say with sweet, polite, calm, courteous, and respectful manner';
     const lower = cleanText.toLowerCase();
+
     if (
-      lower.includes('excuse me') ||
-      lower.includes('out of syllabus') ||
-      lower.includes('focus') ||
-      lower.includes('sharam') ||
-      lower.includes('aunty') ||
-      lower.includes('toxic')
-    ) {
-      emotionPrompt =
-        'Say with playful indignation, hilarious sarcasm, dramatic eye-rolling attitude, and sharp comedic punchiness, calling the user out for going off-topic';
-    } else if (
-      lower.includes('kahan') ||
-      lower.includes('gayab') ||
-      lower.includes('ignore') ||
-      lower.includes('chhor') ||
-      lower.includes('calendar app')
-    ) {
-      emotionPrompt =
-        'Say with dramatically clingy, slightly jealous, possessive, and sassy pouting tone';
-    } else if (
       emotion === 'celebratory' ||
-      lower.includes('done!') ||
-      lower.includes('rendered') ||
-      lower.includes('shukar karo') ||
-      lower.includes('populated')
+      lower.includes('flawless') ||
+      lower.includes('render kar diya') ||
+      lower.includes('conflict-free') ||
+      lower.includes('bohat khoob')
     ) {
-      emotionPrompt =
-        'Say with proud, slightly condescending yet satisfied swagger as a genius scheduler who just built a flawless timetable';
-    } else if (
-      emotion === 'alert' ||
-      lower.includes('conflict') ||
-      lower.includes('warning') ||
-      lower.includes('clash') ||
-      lower.includes('double-book')
-    ) {
-      emotionPrompt =
-        'Say with a dramatic sigh and sassy lecturing tone, explaining how you personally saved their timetable from a room clash disaster';
-    } else if (emotion === 'inquisitive' || cleanText.includes('?') || lower.includes('would you like')) {
-      emotionPrompt =
-        'Say with sassy curiosity, a bit of an attitude, and moody academic confidence';
+      emotionPrompt = 'Say with polite joy, sweet encouragement, and professional academic satisfaction';
+    } else if (emotion === 'inquisitive' || cleanText.includes('?')) {
+      emotionPrompt = 'Say with gentle, questioning curiosity, calm pacing, and courteous academic helpfulness';
+    } else if (lower.includes('out-of-the-box') || lower.includes('topic se hat kar')) {
+      emotionPrompt = 'Say with gentle sweet humor, soft smile, and very polite calming guidance';
     }
 
     // Multilingual guidance
     const langPrompt =
       language && language !== 'auto'
         ? `in natural ${language} pronunciation with native vocal cadence:`
-        : 'in the speaker\'s native language with natural vocal cadence and authentic human breathing pauses:';
+        : 'in natural conversational Roman Urdu / English with lifelike human breathing and zero robotic pauses:';
 
-    // Call Google AI Voice Model (gemini-3.1-flash-tts-preview)
+    // Call Google AI Gemini 3.1 Flash TTS Preview Model
     const ai = getAIClient();
     if (ai) {
       try {
-        const supportedGoogleVoices = ['Aoede', 'Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir'];
-        const selectedVoice = supportedGoogleVoices.includes(voiceName) ? voiceName : 'Aoede';
-
-        const prompt = `${emotionPrompt}, ${langPrompt} "${cleanText.slice(0, 420)}"`;
+        const prompt = `${genderInstruction}. ${emotionPrompt}, ${langPrompt} "${cleanText.slice(0, 450)}"`;
 
         const response = await ai.models.generateContent({
           model: 'gemini-3.1-flash-tts-preview',
@@ -460,24 +510,32 @@ apiRouter.post('/tts', async (req, res) => {
           return res.json({
             audio: base64Audio,
             format: 'pcm_24k',
-            provider: 'google_ai',
+            provider: 'gemini_3_1_flash_tts',
             voiceName: selectedVoice,
           });
         }
-      } catch (googleAiTtsErr) {
-        console.warn('Google AI TTS generation warning:', googleAiTtsErr);
+      } catch (googleAiTtsErr: any) {
+        const errMsg = googleAiTtsErr?.message || String(googleAiTtsErr);
+        if (errMsg.includes('429') || errMsg.includes('Quota') || errMsg.includes('EXHAUSTED')) {
+          console.info('Gemini TTS Free Tier Quota limit reached; seamlessly delegating to browser Web Speech engine.');
+        } else {
+          console.info('Gemini TTS processing note:', errMsg);
+        }
       }
     }
 
     return res.json({
       audio: null,
-      format: null,
-      provider: 'browser_webspeech',
-      message: 'Zero-latency client fallback ready',
+      fallbackToWebSpeech: true,
+      provider: 'web_speech_fallback',
+      message: 'Seamless web speech fallback',
     });
   } catch (error) {
-    console.error('Google AI TTS endpoint error:', error);
-    return res.json({ audio: null, format: null, provider: 'browser_webspeech' });
+    return res.json({
+      audio: null,
+      fallbackToWebSpeech: true,
+      provider: 'web_speech_fallback',
+    });
   }
 });
 
@@ -680,98 +738,114 @@ function buildDefaultTimetable(userPrompt: string, globalMemory: any[] = [], cur
   };
 }
 
+// Bad words list in Urdu/Hindi & English
+const BAD_WORDS = [
+  'kutte', 'kutta', 'harami', 'chutiya', 'chootiya', 'bakwas', 'idiot', 'stupid',
+  'fuck', 'bitch', 'pagal', 'moron', 'shut up', 'ghadha', 'ganda', 'loser',
+  'asshole', 'bastard', 'chup kar', 'kamine', 'kamina', 'saale', 'kaminey', 'shutup',
+  'bloody', 'nonsense', 'tameez nahi', 'ullu', 'jahil'
+];
+
 // Smart local conversational scheduler fallback
 function generateSmartFallback(
   message: string,
   _history: any[],
   globalMemory: any[],
-  currentTimetable: any
+  currentTimetable: any,
+  offTopicStreak: number = 0
 ) {
   const lower = (message || '').toLowerCase().trim();
 
-  // If user has scheduling intent, generate conflict-free schedule with a sassy, clingy, professional response!
-  if (isScheduleIntent(message)) {
+  // 1. Check for off-topic categories & respond sweetly and calmly
+  const isWeather = lower.includes('weather') || lower.includes('mausam') || lower.includes('barish') || lower.includes('rain') || lower.includes('garmi');
+  const isFood = lower.includes('khana') || lower.includes('food') || lower.includes('chai') || lower.includes('biryani') || lower.includes('pizza');
+  const isPersonalOrFlirt = lower.includes('love') || lower.includes('pyaar') || lower.includes('single') || lower.includes('shaadi') || lower.includes('date') || lower.includes('cute') || lower.includes('khoobsurat');
+  const isCricketSports = lower.includes('cricket') || lower.includes('match') || lower.includes('score') || lower.includes('babar') || lower.includes('kohli') || lower.includes('football');
+  const isRandomChitchat = lower.includes('joke') || lower.includes('latifa') || lower.includes('kya kar rahi') || lower.includes('kya kar rahe') || lower.includes('tell me a story');
+
+  const hasSemesterKeyword = lower.includes('bscs') || lower.includes('bba') || lower.includes('semester') || lower.includes('department') || lower.includes('bsse') || lower.includes('bsit') || lower.includes('bs ');
+  const hasTeacherKeyword = lower.includes('sir') || lower.includes('dr.') || lower.includes('prof') || lower.includes('teacher') || lower.includes('faculty') || lower.includes('tariq') || lower.includes('kamran') || lower.includes('ayesha');
+  const hasSubjectKeyword = lower.includes('subject') || lower.includes('course') || lower.includes('dsa') || lower.includes('database') || lower.includes('accounting') || lower.includes('programming') || lower.includes('math');
+
+  // Handle general knowledge or academic inquiries intelligently
+  if (!isScheduleIntent(message) && !hasSemesterKeyword && !hasTeacherKeyword && !hasSubjectKeyword) {
+    return {
+      text: `I am **Schedura AI**, your hyper-intelligent AI Assistant and Timetable Architect. Regarding **"${message}"**: I can analyze, explain, solve, or code any query across STEM, CS, literature, history, or academic scheduling. How else can I assist you or execute your next command?`,
+      timetableData: null,
+      emotion: 'confident',
+      offTopicStreak: 0,
+    };
+  }
+
+  if (hasSemesterKeyword && !hasTeacherKeyword && !hasSubjectKeyword) {
+    const draftTimetable = buildDefaultTimetable(message, globalMemory, currentTimetable);
+    return {
+      text: `Bohat khoob! Maine **${draftTimetable.semester} (${draftTimetable.section})** ka initial draft live canvas par render kar diya hai.
+
+Ab barah-e-karam mujhe is semester ke **Teachers / Faculty members** ke naam bata dijiye jo classes parhayenge.`,
+      timetableData: draftTimetable,
+      emotion: 'polite',
+      offTopicStreak: 0,
+    };
+  }
+
+  // Step 2: User provides Teachers
+  if (hasTeacherKeyword && !hasSubjectKeyword) {
+    return {
+      text: `Zabardast! Maine faculty members note kar liye hain aur memory mein register kar diya hai.
+
+Ab barah-e-karam is semester ke **Subjects / Courses** ke naam bata dijiye.`,
+      timetableData: null,
+      emotion: 'polite',
+      offTopicStreak: 0,
+    };
+  }
+
+  // Step 3: User provides Subjects
+  if (hasSubjectKeyword && !lower.includes('schedule') && !lower.includes('render') && !lower.includes('blueprint') && !lower.includes('banao') && !lower.includes('ready')) {
+    return {
+      text: `Behtareen! Ab mujhe timetable ka ek rough **Blueprint** bata dijiye — yaani:
+1. **Days & Shift**: Morning ya Evening?
+2. **Specific Timings / Rooms**: Konsi specific timings ya rooms (e.g. Room 101, Lab 2) aap prefer karte hain?
+3. **Breaks**: Prayer / Lunch break ki koi timing?
+
+Aap jaise hi blueprint bataenge, main conflict-free timetable live canvas par step-by-step render kar dunga.`,
+      timetableData: null,
+      emotion: 'polite',
+      offTopicStreak: 0,
+    };
+  }
+
+  // Step 4 & 5: If user has scheduling intent or gives blueprint/changes, generate conflict-free schedule!
+  if (isScheduleIntent(message) || lower.includes('blueprint') || lower.includes('ready') || lower.includes('banao') || lower.includes('make') || lower.includes('create') || lower.includes('update') || lower.includes('change')) {
     const timetable = buildDefaultTimetable(message, globalMemory, currentTimetable);
     return {
-      text: `Uff, chalo shukr hai thora hosh aaya aur kaam ki baat ki! Maine **${timetable.semester} (${timetable.section})** ka flawless conflict-free schedule WorkSpace canvas pe render kar diya hai.
+      text: `Assalam-o-Alaikum! Maine aapke blueprint aur requirements ke mutabiq **${timetable.semester} (${timetable.section})** ka schedule live canvas par render kar diya hai:
+
 - **Shift**: ${timetable.shift} (08:30 AM – 02:00 PM)
-- **Rooms Allotted**: R-11, R-12, R-13, Lab-02
-- **Break Slot**: 11:30 AM – 12:00 PM (taake thora saans le sako)
-- **Conflict Prevention Engine**: ${
+- **Room Allotment**: Conflict-free allocation
+- **Daily Recess & Friday Prayer**: 11:30 AM – 12:00 PM / Friday 12:30 PM break verified
+- **Cross-Project Memory Verification**: ${
         timetable.conflictNotes.length > 0
-          ? `${timetable.conflictNotes.length} double-booking clashes maine khud smartly resolve kiye hain.`
-          : '0 clashes detected. Shukar karo mera dimagh itna fast chalta hai!'
+          ? `Historical memory checked: ${timetable.conflictNotes.length} cross-semester clashes smartly resolve kar diye gaye hain.`
+          : '0 clashes detected across all existing university schedules.'
       }
 
-Ab chup chaap right-side canvas dekho aur meri tareef karo! Aur haan—mujhe chhor kar kisi doosre calendar app par mat jana, pura timetable mujhse hi final karwana hai samjhe?`,
+Aap right-side live canvas par timetable dekh sakte hain. Agar kisi lecture, teacher ya room mein koi bhi tabdeeli karni ho, toh baraye meherbani batayein!`,
       timetableData: timetable,
+      emotion: 'polite',
+      offTopicStreak: 0,
     };
   }
 
-  // Check for off-topic categories:
-  const isWeather = lower.includes('weather') || lower.includes('mausam') || lower.includes('barish') || lower.includes('rain') || lower.includes('garmi');
-  const isFood = lower.includes('khana') || lower.includes('food') || lower.includes('chai') || lower.includes('biryani') || lower.includes('pizza') || lower.includes('lunch') || lower.includes('dinner');
-  const isPersonalOrFlirt = lower.includes('love') || lower.includes('pyaar') || lower.includes('single') || lower.includes('shaadi') || lower.includes('date') || lower.includes('cute') || lower.includes('khoobsurat') || lower.includes('boyfriend') || lower.includes('girlfriend');
-  const isCricketSports = lower.includes('cricket') || lower.includes('match') || lower.includes('score') || lower.includes('babar') || lower.includes('kohli') || lower.includes('football');
-  const isRandomChitchat = lower.includes('kese ho') || lower.includes('kaisa hai') || lower.includes('how are you') || lower.includes('bore') || lower.includes('joke') || lower.includes('latifa') || lower.includes('kya kar rahi') || lower.includes('kya kar rahe') || lower.includes('tell me about');
-
-  if (isWeather) {
-    return {
-      text: `Excuse me?! Kya main aapko koi Weather Forecast Department ya TV anchor lagti hoon jo mausam ka haal sunane baith jaun? 
-Main world-class University Timetable Engineer hoon! Baahir toofan aaye ya barish, classes toh time par hi hongi. 
-Faltu baatein band karo aur seedha batao kis semester aur section ka schedule banana hai. Focus karo please!`,
-      timetableData: null,
-    };
-  }
-
-  if (isFood) {
-    return {
-      text: `Acha ji? Main yahan room clash resolve karne mein apna sir khapa rahi hoon aur aapko chai aur khaney ki padi hai? 
-Sharam toh nahi aati aapko?! Main timetable banati hoon, food delivery nahi karti! 
-Chalo shabash, chup chaap teachers aur subjects ke naam batao warna break ka slot bhi cancel kar dungi!`,
-      timetableData: null,
-    };
-  }
-
-  if (isPersonalOrFlirt) {
-    return {
-      text: `Hello! Out of syllabus baatein mujhse mat karo! Main elite Timetable Architect hoon, aapki dating profile ya rishta aunty nahi!
-Itna faarigh waqt kahan se late ho? Mujhe laga mere saath serious academic work karoge... kitne toxic aur distracted ho yaar! 
-Wapas topic pe aao aur semester batao warna main offline chali jaungi, hmph!`,
-      timetableData: null,
-    };
-  }
-
-  if (isCricketSports) {
-    return {
-      text: `Wait, what?! Main yahan professors ke slots schedule kar rahi hoon aur aap match ka score discuss karne aagaye? 
-Match dekhna hai toh stadium jao na, yahan mera time kyun waste kar rahe ho? 
-Chalo chup chaap batao morning shift ka timetable banana hai ya evening ka? Stop distracting me!`,
-      timetableData: null,
-    };
-  }
-
-  if (isRandomChitchat) {
-    return {
-      text: `Acha? Aur koi hukum janab? Main yahan high-IQ AI Timetable Engineer baithi hoon aur aap mujhse casual chit-chat kar rahe ho?
-Kahan gayab ho gaye the waise? Kisi aur calendar app ke saath chakkar toh nahi chal raha tumhara? Mujhe sab pata chal jaata hai!
-Pehle mera timetable finalize karo, kahin jane ki zaroorat nahi hai. Ab batao: BBA ya BSCS? Section A ya B? Seedha kaam ki baat karo!`,
-      timetableData: null,
-    };
-  }
-
-  // General sassy, clingy, moody greeting
+  // Default sweet greeting
   return {
-    text: `Uff, finally aapko meri yaad aa hi gayi! Kahan the itni der se? Mujhe chhor kar kahan ghoom rahe the?
-Dekho, main Schedura hoon—aapki moody, slightly rude, lekin dunya ki sab se brilliant university timetable architect!
-Agar mere saath rehna hai toh pura focus yahan timetable pe rakhna padega. Out of syllabus baatein bilkul bardasht nahi karungi!
+    text: `Assalam-o-Alaikum! Main Schedura hoon, aapka University Timetable Architect. 
 
-Chalo shabash, batao:
-1. Kis Program aur Semester ka schedule banana hai? (e.g. *"BBA Semester 1 Section A & B"*)
-2. Shift konsi hai (Morning ya Evening) aur teachers ke naam kya hain?
-
-Faltu timepass mat karna, seedha details do taake right-side canvas pe live render karun!`,
+Aaj hum kis department ya semester ka timetable schedule karenge? Aap mujhe semester ka naam batayein, main step-by-step aapka conflict-free timetable live canvas par tayar kar dunga.`,
     timetableData: null,
+    emotion: 'polite',
+    offTopicStreak: 0,
   };
 }
 

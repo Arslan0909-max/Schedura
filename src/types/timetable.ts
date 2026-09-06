@@ -15,12 +15,14 @@ export interface TimetableSlot {
 
 export interface TimetableData {
   id: string;
+  userId?: string;
   semester: string;
   section: string;
   shift: 'Morning' | 'Evening';
   days: string[];
   timeSlots: string[];
   slots: TimetableSlot[];
+  conflictNotes?: string[];
   createdAt: string;
   updatedAt: string;
 }

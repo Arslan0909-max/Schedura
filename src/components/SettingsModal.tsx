@@ -39,13 +39,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTimeout(() => setIsSavedKey(false), 2000);
   };
 
-  const googleVoices: { id: GoogleVoiceName; name: string; style: string }[] = [
-    { id: 'Aoede', name: 'Aoede', style: 'Warm & Expressive' },
-    { id: 'Zephyr', name: 'Zephyr', style: 'Calm & Articulate' },
-    { id: 'Puck', name: 'Puck', style: 'Dynamic & Upbeat' },
-    { id: 'Kore', name: 'Kore', style: 'Natural & Balanced' },
-    { id: 'Fenrir', name: 'Fenrir', style: 'Authoritative & Crisp' },
-    { id: 'Charon', name: 'Charon', style: 'Gentle & Academic' },
+  const googleVoices: { id: GoogleVoiceName; name: string; gender: 'Female' | 'Male'; style: string }[] = [
+    { id: 'Aoede', name: 'Aoede', gender: 'Female', style: 'Warm & Expressive Female' },
+    { id: 'Kore', name: 'Kore', gender: 'Female', style: 'Natural & Balanced Female' },
+    { id: 'Fenrir', name: 'Fenrir', gender: 'Male', style: 'Authoritative Male Tone' },
+    { id: 'Zephyr', name: 'Zephyr', gender: 'Male', style: 'Calm & Articulate Male' },
+    { id: 'Puck', name: 'Puck', gender: 'Male', style: 'Dynamic & Energetic Male' },
+    { id: 'Charon', name: 'Charon', gender: 'Male', style: 'Gentle & Academic Male' },
   ];
 
   const languages = [

@@ -11,20 +11,51 @@ import { TemplatesModal } from './components/TemplatesModal';
 import { HistoryModal } from './components/HistoryModal';
 import { SettingsModal } from './components/SettingsModal';
 import { MemoryModal } from './components/MemoryModal';
+import { AuthModal } from './components/AuthModal';
 import { TimetableData, TimetableSlot, ChatMessage, Conflict } from './types/timetable';
 import { scanAllConflicts, checkSlotConflict } from './utils/conflictEngine';
 import { voiceService } from './services/voiceService';
 import { memoryService } from './services/memoryService';
 import { sendClientGeminiMessage } from './services/clientGeminiService';
+import {
+  AppUser,
+  subscribeToAuthState,
+  saveTimetableToFirestore,
+  loadTimetablesFromFirestore,
+  deleteTimetableFromFirestore,
+  saveChatMessagesToFirestore,
+  loadChatMessagesFromFirestore
+} from './services/firebase';
 import { MessageSquare, Layout, Menu, Calendar, ChevronDown, Sparkles, Moon, Sun } from 'lucide-react';
 
 export default function App() {
-  // Application starts completely clean with NO pre-made timetables or fake data on load
-  const [allTimetables, setAllTimetables] = useState<TimetableData[]>([]);
-  const [activeTimetableId, setActiveTimetableId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Application starts with local cached or cloud restored timetables
+  const [allTimetables, setAllTimetables] = useState<TimetableData[]>(() => {
+    try {
+      const saved = localStorage.getItem('schedura_timetables');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+  const [activeTimetableId, setActiveTimetableId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('schedura_active_timetable_id');
+    } catch {}
+    return null;
+  });
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem('schedura_chat_messages');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
+
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // Navigation & Modals
   const [activeNavTab, setActiveNavTab] = useState<'chat' | 'history' | 'templates' | 'settings'>('chat');
@@ -34,6 +65,78 @@ export default function App() {
   const [showMemoryModal, setShowMemoryModal] = useState(false);
   const [memoryCount, setMemoryCount] = useState(() => memoryService.getAll().length);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Persist timetables to localStorage & Firestore whenever updated
+  useEffect(() => {
+    try {
+      localStorage.setItem('schedura_timetables', JSON.stringify(allTimetables));
+      if (activeTimetableId) {
+        localStorage.setItem('schedura_active_timetable_id', activeTimetableId);
+      }
+    } catch {}
+  }, [allTimetables, activeTimetableId]);
+
+  // Persist chat messages to localStorage & Firestore whenever updated
+  useEffect(() => {
+    try {
+      localStorage.setItem('schedura_chat_messages', JSON.stringify(messages));
+    } catch {}
+    if (currentUser?.uid && messages.length > 0) {
+      saveChatMessagesToFirestore(messages, currentUser.uid);
+    }
+  }, [messages, currentUser]);
+
+  // Firebase Auth Listener & Cloud Sync on Login / Page Reload / Sign Out
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthState(async (user) => {
+      setCurrentUser(user);
+      if (user?.uid) {
+        // Authenticated: Load user's cloud memories, timetables and chats
+        await memoryService.syncWithFirestore(user.uid);
+        setMemoryCount(memoryService.getAll().length);
+
+        // Load user's cloud timetables
+        try {
+          const cloudTimetables = await loadTimetablesFromFirestore(user.uid);
+          if (cloudTimetables && cloudTimetables.length > 0) {
+            setAllTimetables(cloudTimetables);
+            setActiveTimetableId(cloudTimetables[cloudTimetables.length - 1].id);
+          } else {
+            setAllTimetables([]);
+            setActiveTimetableId(null);
+          }
+        } catch (e) {
+          console.warn('Failed loading cloud timetables:', e);
+        }
+
+        // Load user's cloud chat messages
+        try {
+          const cloudChats = await loadChatMessagesFromFirestore(user.uid);
+          if (cloudChats && cloudChats.length > 0) {
+            setMessages(cloudChats);
+          } else {
+            setMessages([]);
+          }
+        } catch (e) {
+          console.warn('Failed loading cloud chats:', e);
+        }
+      } else {
+        // Logged Out / Signed Out: Everything is completely fresh & clean!
+        memoryService.handleUserLogout();
+        setMemoryCount(0);
+        setAllTimetables([]);
+        setActiveTimetableId(null);
+        setMessages([]);
+        try {
+          localStorage.removeItem('schedura_timetables');
+          localStorage.removeItem('schedura_active_timetable_id');
+          localStorage.removeItem('schedura_chat_messages');
+        } catch {}
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Dark Mode State & Synchronization
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -232,8 +335,9 @@ export default function App() {
                 '01:30 - 02:30',
               ],
         slots: data.slots || [],
-        createdAt: new Date().toISOString(),
+        createdAt: data.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        userId: currentUser?.uid || 'local',
       };
 
       setAllTimetables((prev) => {
@@ -246,6 +350,16 @@ export default function App() {
         return [...prev, newTimetable];
       });
 
+      // Save to Firestore cloud database
+      saveTimetableToFirestore(newTimetable, currentUser?.uid);
+
+      // Save to AI persistent project memory for future cross-project awareness
+      memoryService.autoRecordProjectMemory(newTimetable);
+      if (currentUser?.uid) {
+        memoryService.syncWithFirestore(currentUser.uid);
+      }
+      setMemoryCount(memoryService.getAll().length);
+
       setActiveTimetableId(id);
 
       // On mobile devices, smoothly scroll down to the workspace section
@@ -253,7 +367,7 @@ export default function App() {
         scrollToMobileWorkspace();
       }, 250);
     },
-    [scrollToMobileWorkspace]
+    [currentUser, scrollToMobileWorkspace]
   );
 
   // Load sample schedules
@@ -322,11 +436,164 @@ export default function App() {
       isVoice,
     };
 
+    // Auto learn persistent memories from conversational patterns
+    memoryService.autoLearnFromConversation(text);
+    if (currentUser?.uid) {
+      memoryService.syncWithFirestore(currentUser.uid);
+    }
+    setMemoryCount(memoryService.getAll().length);
+
     setMessages((prev) => [...prev, userMsg]);
+
+    // Instant In-App Agentic UI Command Processor
+    const lowerText = text.toLowerCase().trim();
+    const isLiveOff = (lowerText.includes('live') || lowerText.includes('voice')) && (lowerText.includes('off') || lowerText.includes('bnd') || lowerText.includes('stop') || lowerText.includes('close') || lowerText.includes('band'));
+    const isDarkModeOn = lowerText.includes('dark') && (lowerText.includes('on') || lowerText.includes('enable') || lowerText.includes('switch') || lowerText.includes('theme') || lowerText.includes('karo'));
+    const isLightModeOn = lowerText.includes('light') && (lowerText.includes('on') || lowerText.includes('enable') || lowerText.includes('theme') || lowerText.includes('karo'));
+    const isOpenTemplates = lowerText.includes('template') && (lowerText.includes('open') || lowerText.includes('show') || lowerText.includes('dikhao'));
+    const isOpenSettings = lowerText.includes('setting') && (lowerText.includes('open') || lowerText.includes('show') || lowerText.includes('dikhao'));
+    const isOpenHistory = lowerText.includes('history') && (lowerText.includes('open') || lowerText.includes('show') || lowerText.includes('dikhao'));
+    const isOpenMemory = lowerText.includes('memory') && (lowerText.includes('open') || lowerText.includes('show') || lowerText.includes('dikhao'));
+    const isOpenAuth = (lowerText.includes('login') || lowerText.includes('account')) && (lowerText.includes('open') || lowerText.includes('show'));
+    const isCloseModal = (lowerText.includes('close') || lowerText.includes('bnd')) && (lowerText.includes('modal') || lowerText.includes('window') || lowerText.includes('dialog'));
+    const isToggleSidebar = (lowerText.includes('sidebar') || lowerText.includes('menu')) && (lowerText.includes('toggle') || lowerText.includes('open') || lowerText.includes('close') || lowerText.includes('collapse') || lowerText.includes('expand'));
+    const isSwitchCanvas = lowerText.includes('canvas') && (lowerText.includes('switch') || lowerText.includes('show') || lowerText.includes('view') || lowerText.includes('dikhao'));
+    const isNewChat = (lowerText.includes('new chat') || lowerText.includes('clear chat') || lowerText.includes('reset chat')) && !lowerText.includes('timetable');
+    const isLoadSample = lowerText.includes('sample') && (lowerText.includes('load') || lowerText.includes('generate') || lowerText.includes('timetable'));
+
+    if (isLiveOff || isDarkModeOn || isLightModeOn || isOpenTemplates || isOpenSettings || isOpenHistory || isOpenMemory || isOpenAuth || isCloseModal || isToggleSidebar || isSwitchCanvas || isNewChat || isLoadSample) {
+      let replyText = "Agentic UI action completed.";
+      if (isLiveOff) {
+        voiceService.stopLiveVoiceMode();
+        replyText = "Live Voice Mode has been disabled.";
+      } else if (isDarkModeOn) {
+        setIsDarkMode(true);
+        replyText = "Switched to Dark Mode.";
+      } else if (isLightModeOn) {
+        setIsDarkMode(false);
+        replyText = "Switched to Light Mode.";
+      } else if (isOpenTemplates) {
+        setShowTemplatesModal(true);
+        replyText = "Opened Timetable Templates.";
+      } else if (isOpenSettings) {
+        setShowSettingsModal(true);
+        replyText = "Opened Engine Settings.";
+      } else if (isOpenHistory) {
+        setShowHistoryModal(true);
+        replyText = "Opened Timetable History.";
+      } else if (isOpenMemory) {
+        setShowMemoryModal(true);
+        replyText = "Opened Permanent Memory.";
+      } else if (isOpenAuth) {
+        setShowAuthModal(true);
+        replyText = "Opened User Authentication.";
+      } else if (isCloseModal) {
+        setShowTemplatesModal(false);
+        setShowSettingsModal(false);
+        setShowHistoryModal(false);
+        setShowMemoryModal(false);
+        setShowAuthModal(false);
+        replyText = "Closed all modal dialogs.";
+      } else if (isToggleSidebar) {
+        handleToggleSidebarCollapse();
+        replyText = "Toggled navigation sidebar.";
+      } else if (isSwitchCanvas) {
+        setMobileLayoutMode('workspace');
+        replyText = "Switched view to Workspace Canvas.";
+      } else if (isNewChat) {
+        handleNewChat();
+        replyText = "Started a fresh conversation.";
+      } else if (isLoadSample) {
+        handleLoadSample(lowerText.includes('bscs') ? 'bscs' : 'bba');
+        replyText = "Loaded sample university timetable onto the canvas.";
+      }
+
+      const assistantMsg: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: replyText,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setMessages((prev) => [...prev, assistantMsg]);
+      setIsLoading(false);
+      setIsVoiceProcessing(false);
+
+      if (isVoice) {
+        voiceService.speakText(replyText);
+      }
+      return;
+    }
+
     setIsLoading(true);
     if (isVoice) {
       setIsVoiceProcessing(true);
     }
+
+    const processAgenticAction = (agenticAction: any) => {
+      if (!agenticAction) return;
+      const { actionType, targetModal, targetView, sampleType, slotData } = agenticAction;
+
+      if (actionType === 'turn_off_live_mode') voiceService.stopLiveVoiceMode();
+      else if (actionType === 'toggle_dark_mode') setIsDarkMode((prev) => !prev);
+      else if (actionType === 'set_dark_mode') setIsDarkMode(true);
+      else if (actionType === 'set_light_mode') setIsDarkMode(false);
+      else if (actionType === 'open_modal') {
+        if (targetModal === 'templates') setShowTemplatesModal(true);
+        else if (targetModal === 'history') setShowHistoryModal(true);
+        else if (targetModal === 'settings') setShowSettingsModal(true);
+        else if (targetModal === 'memory') setShowMemoryModal(true);
+        else if (targetModal === 'auth') setShowAuthModal(true);
+      } else if (actionType === 'toggle_sidebar') handleToggleSidebarCollapse();
+      else if (actionType === 'switch_view') {
+        if (targetView === 'workspace') setMobileLayoutMode('workspace');
+        else if (targetView === 'chat') setMobileLayoutMode('chat');
+      } else if (actionType === 'clear_chat') handleNewChat();
+      else if (actionType === 'load_sample') handleLoadSample(sampleType || 'bba');
+      else if (actionType === 'clear_canvas') {
+        if (activeTimetable) {
+          handleRenderToCanvas({ ...activeTimetable, slots: [] });
+        }
+      } else if (actionType === 'delete_slot') {
+        if (activeTimetable && slotData) {
+          const updatedSlots = activeTimetable.slots.filter(
+            (s) => !(s.id === slotData.slotId || (s.day === slotData.day && s.timeSlot === slotData.timeSlot))
+          );
+          handleRenderToCanvas({ ...activeTimetable, slots: updatedSlots });
+        }
+      } else if (actionType === 'edit_slot' || actionType === 'add_slot') {
+        if (activeTimetable && slotData) {
+          const existingIdx = activeTimetable.slots.findIndex(
+            (s) => s.id === slotData.slotId || (s.day === slotData.day && s.timeSlot === slotData.timeSlot)
+          );
+          let newSlots = [...activeTimetable.slots];
+          const slotItem: TimetableSlot = {
+            id: slotData.slotId || `slot-${Date.now()}`,
+            day: slotData.day,
+            timeSlot: slotData.timeSlot,
+            subject: slotData.subject,
+            teacher: slotData.teacher,
+            room: slotData.room,
+            isBreak: slotData.isBreak || false,
+            breakLabel: slotData.breakLabel,
+            color: slotData.color || 'blue',
+            semester: activeTimetable.semester,
+            section: activeTimetable.section,
+            shift: activeTimetable.shift,
+          };
+          if (existingIdx >= 0) {
+            newSlots[existingIdx] = { ...newSlots[existingIdx], ...slotItem };
+          } else {
+            newSlots.push(slotItem);
+          }
+          handleRenderToCanvas({ ...activeTimetable, slots: newSlots });
+        }
+      } else if (actionType === 'save_version') {
+        if (activeTimetable) {
+          handleRenderToCanvas(activeTimetable);
+        }
+      }
+    };
 
     try {
       let assistantText = '';
@@ -339,9 +606,10 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: text,
-            history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+            history: messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
             globalMemory: globalSlots,
             persistentMemories: memoryService.getAll(),
+            allTimetables: allTimetables,
             currentTimetable: activeTimetable,
           }),
         });
@@ -352,6 +620,10 @@ export default function App() {
             const data = await response.json();
             assistantText = data.text || '';
             timetableData = data.timetableData || null;
+
+            if (data.agenticAction) {
+              processAgenticAction(data.agenticAction);
+            }
           } else {
             throw new Error('Non-JSON response from server');
           }
@@ -363,13 +635,17 @@ export default function App() {
         // Fallback to Direct Client-side Gemini API call!
         const clientRes = await sendClientGeminiMessage({
           message: text,
-          history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+          history: messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
           globalMemory: globalSlots,
           persistentMemories: memoryService.getAll(),
+          allTimetables: allTimetables,
           currentTimetable: activeTimetable,
         });
         assistantText = clientRes.text;
         timetableData = clientRes.timetableData;
+        if (clientRes.agenticAction) {
+          processAgenticAction(clientRes.agenticAction);
+        }
       }
 
       let detectedConflicts: Conflict[] = [];
@@ -437,6 +713,7 @@ export default function App() {
   // Reset to clean new chat
   const handleNewChat = () => {
     setMessages([]);
+    setActiveTimetableId(null);
     setActiveNavTab('chat');
   };
 
@@ -467,6 +744,10 @@ export default function App() {
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         isDarkMode={isDarkMode}
         onToggleDarkMode={toggleDarkMode}
+        currentUser={currentUser}
+        onOpenAuthModal={() => setShowAuthModal(true)}
+        onOpenMemoryModal={() => setShowMemoryModal(true)}
+        memoryCount={memoryCount}
       />
 
       {/* Resizer Handle: Sidebar <-> Chat (Only when sidebar is expanded on desktop) */}
@@ -606,16 +887,16 @@ export default function App() {
             id="mobile-workspace-section"
             className={`${
               mobileLayoutMode === 'workspace' ? 'h-full flex-1 min-h-screen' : 'min-h-[85vh]'
-            } flex flex-col bg-[#FBFBFD] flex-1 pb-16 animate-in fade-in duration-200`}
+            } flex flex-col bg-[#FBFBFD] dark:bg-[#0E0F14] flex-1 pb-16 animate-in fade-in duration-200`}
           >
             {/* Scroll Down Indicator Header (Visible only in stacked mode) */}
             {mobileLayoutMode === 'stacked' && (
-              <div className="px-4 py-2.5 liquid-glass-subtle border-b border-zinc-200/70 flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[12px] font-semibold text-zinc-800">
-                  <Layout className="w-3.5 h-3.5 text-zinc-600" />
+              <div className="px-4 py-2.5 liquid-glass-subtle border-b border-zinc-200/70 dark:border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[12px] font-semibold text-zinc-800 dark:text-zinc-200">
+                  <Layout className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
                   <span>Timetable WorkSpace Canvas</span>
                 </div>
-                <span className="text-[11px] text-zinc-500">Tap any cell to edit</span>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Tap any cell to edit</span>
               </div>
             )}
 
@@ -623,6 +904,7 @@ export default function App() {
               activeTimetable={activeTimetable}
               allTimetables={allTimetables}
               isVoiceProcessing={isVoiceProcessing}
+              isLoading={isLoading}
               onSelectTimetable={(id) => setActiveTimetableId(id)}
               onUpdateTimetable={(updated) => {
                 setAllTimetables((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
@@ -658,10 +940,10 @@ export default function App() {
         id="resize-handle-chat-workspace"
         onMouseDown={handleStartResizeChat}
         onTouchStart={handleStartResizeChat}
-        className="hidden md:flex w-1 hover:w-1.5 bg-transparent hover:bg-zinc-300 active:bg-zinc-400 cursor-col-resize z-30 transition-all items-center justify-center group select-none shrink-0"
+        className="hidden md:flex w-1 hover:w-1.5 bg-transparent hover:bg-zinc-300 dark:hover:bg-zinc-700 active:bg-zinc-400 dark:active:bg-zinc-600 cursor-col-resize z-30 transition-all items-center justify-center group select-none shrink-0"
         title="Drag to resize chat and workspace"
       >
-        <div className="w-0.5 h-10 rounded-full bg-zinc-300/80 group-hover:bg-zinc-500 transition-colors" />
+        <div className="w-0.5 h-10 rounded-full bg-zinc-300/80 dark:bg-zinc-700/80 group-hover:bg-zinc-500 dark:group-hover:bg-zinc-400 transition-colors" />
       </div>
 
       {/* 3. Right WorkSpace Canvas */}
@@ -670,6 +952,7 @@ export default function App() {
           activeTimetable={activeTimetable}
           allTimetables={allTimetables}
           isVoiceProcessing={isVoiceProcessing}
+          isLoading={isLoading}
           onSelectTimetable={(id) => setActiveTimetableId(id)}
           onUpdateTimetable={(updated) => {
             setAllTimetables((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
@@ -697,6 +980,7 @@ export default function App() {
         }}
         onDeleteTimetable={(id) => {
           setAllTimetables((prev) => prev.filter((t) => t.id !== id));
+          deleteTimetableFromFirestore(id);
           if (activeTimetableId === id) {
             setActiveTimetableId(null);
           }
@@ -718,6 +1002,14 @@ export default function App() {
         isOpen={showMemoryModal}
         onClose={() => setShowMemoryModal(false)}
         onMemoryUpdated={() => setMemoryCount(memoryService.getAll().length)}
+      />
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        currentUser={currentUser}
+        savedTimetablesCount={allTimetables.length}
+        savedMessagesCount={messages.length}
       />
     </div>
   );

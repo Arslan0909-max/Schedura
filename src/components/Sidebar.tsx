@@ -3,14 +3,19 @@ import {
   SquarePen,
   History,
   LayoutGrid,
-  Settings,
   Calendar,
   PanelLeftClose,
   PanelLeftOpen,
   X,
   Moon,
   Sun,
+  Brain,
+  Sparkles,
+  User,
+  ShieldCheck,
+  LogIn,
 } from 'lucide-react';
+import { AppUser } from '../services/firebase';
 
 interface SidebarProps {
   activeTab: 'chat' | 'history' | 'templates' | 'settings';
@@ -24,6 +29,10 @@ interface SidebarProps {
   onCloseMobile?: () => void;
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
+  currentUser?: AppUser | null;
+  onOpenAuthModal?: () => void;
+  onOpenMemoryModal?: () => void;
+  memoryCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,6 +47,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   isDarkMode = false,
   onToggleDarkMode,
+  currentUser = null,
+  onOpenAuthModal,
+  onOpenMemoryModal,
+  memoryCount = 0,
 }) => {
   return (
     <>
@@ -185,27 +198,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {(!isCollapsed || isMobileOpen) && <span className="truncate">Templates</span>}
             </button>
 
-            {/* Settings */}
-            <button
-              id="nav-settings"
-              onClick={() => {
-                onSelectTab('settings');
-                onCloseMobile?.();
-              }}
-              className={`w-full flex items-center ${
-                isCollapsed && !isMobileOpen ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
-              } rounded-xl text-[14px] font-medium punch-tap transition-all cursor-pointer ${
-                activeTab === 'settings'
-                  ? 'bg-zinc-200/90 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold shadow-xs'
-                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60'
-              }`}
-              title="Settings & Anti-Clash Rules"
-            >
-              <Settings className="w-4.5 h-4.5 text-zinc-600 dark:text-zinc-400 shrink-0" />
-              {(!isCollapsed || isMobileOpen) && <span className="truncate">Settings</span>}
-            </button>
+            {/* AI Persistent Memory */}
+            {onOpenMemoryModal && (
+              <button
+                id="nav-ai-memory"
+                type="button"
+                onClick={() => {
+                  onOpenMemoryModal();
+                  onCloseMobile?.();
+                }}
+                className={`w-full flex items-center ${
+                  isCollapsed && !isMobileOpen
+                    ? 'justify-center p-2.5'
+                    : 'justify-start gap-3 px-3 py-2.5'
+                } rounded-xl text-[14px] font-medium punch-tap transition-all text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 cursor-pointer group`}
+                title="AI Long-Term Memory & Rules"
+              >
+                <Brain className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:scale-110 transition-transform" />
+                {(!isCollapsed || isMobileOpen) && <span>AI Memory</span>}
+              </button>
+            )}
 
-            {/* Quick Dark Mode Toggle in Sidebar Settings Area */}
+            {/* Quick Dark Mode Toggle in Sidebar */}
             {onToggleDarkMode && (
               <button
                 id="sidebar-dark-mode-toggle"
@@ -248,7 +262,80 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </nav>
         </div>
+
+        {/* Bottom User Profile / Cloud Sync Area */}
+        {onOpenAuthModal && (
+          <div className={`border-t border-zinc-200/70 dark:border-zinc-800/80 ${isCollapsed && !isMobileOpen ? 'p-2' : 'p-3'}`}>
+            {currentUser && !currentUser.isAnonymous ? (
+              <button
+                type="button"
+                id="btn-user-account"
+                onClick={() => {
+                  onOpenAuthModal();
+                  onCloseMobile?.();
+                }}
+                className={`w-full flex items-center ${
+                  isCollapsed && !isMobileOpen ? 'justify-center p-2' : 'gap-2.5 p-2'
+                } rounded-2xl bg-zinc-100/90 dark:bg-zinc-800/90 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 transition-all punch-tap cursor-pointer text-left group`}
+                title={`${currentUser.displayName || currentUser.email} - Cloud Connected`}
+              >
+                {currentUser.photoURL ? (
+                  <img
+                    src={currentUser.photoURL}
+                    alt={currentUser.displayName || 'User'}
+                    className="w-7.5 h-7.5 rounded-xl object-cover border border-indigo-300 dark:border-indigo-700 shrink-0 shadow-2xs"
+                  />
+                ) : (
+                  <div className="w-7.5 h-7.5 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                    {(currentUser.displayName || currentUser.email || 'U').charAt(0).toUpperCase()}
+                  </div>
+                )}
+
+                {(!isCollapsed || isMobileOpen) && (
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[13px] font-semibold text-zinc-900 dark:text-white truncate">
+                        {currentUser.displayName || 'My Account'}
+                      </span>
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    </div>
+                    <div className="text-[10.5px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 truncate">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <span>Cloud Synced</span>
+                    </div>
+                  </div>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                id="btn-sign-in"
+                onClick={() => {
+                  onOpenAuthModal();
+                  onCloseMobile?.();
+                }}
+                className={`w-full flex items-center ${
+                  isCollapsed && !isMobileOpen ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
+                } rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm shadow-blue-500/20 transition-all punch-tap cursor-pointer`}
+                title="Sign in with Google / Email to save memory & chats permanently"
+              >
+                <div className={`flex items-center ${isCollapsed && !isMobileOpen ? 'justify-center' : 'gap-2.5'}`}>
+                  <LogIn className="w-4 h-4 shrink-0" />
+                  {(!isCollapsed || isMobileOpen) && (
+                    <span className="text-[13px] font-semibold">Sign in / Save</span>
+                  )}
+                </div>
+                {(!isCollapsed || isMobileOpen) && (
+                  <span className="text-[9.5px] bg-white/20 px-1.5 py-0.5 rounded-md font-medium">
+                    Google
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
+        )}
       </aside>
     </>
   );
 };
+

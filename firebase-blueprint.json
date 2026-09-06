@@ -6,22 +6,79 @@
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "userId": { "type": "string" },
         "semester": { "type": "string" },
         "section": { "type": "string" },
         "shift": { "type": "string" },
         "days": { "type": "array" },
         "timeSlots": { "type": "array" },
         "slots": { "type": "array" },
+        "conflictNotes": { "type": "array" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "semester", "section", "shift", "days", "timeSlots", "slots"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile for Schedura academic scheduler.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Historical chat conversation messages between user and Schedura AI.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "role": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "emotion": { "type": "string" },
+        "timetableData": { "type": "object" }
+      },
+      "required": ["id", "role", "content"]
+    },
+    "MemoryItem": {
+      "title": "MemoryItem",
+      "description": "Learned preferences, rules, and professor constraints for timetable personalization.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "tags": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "category", "title", "content"]
     }
   },
   "firestore": {
     "/timetables/{timetableId}": {
       "schema": { "$ref": "#/entities/Timetable" },
       "description": "Collection of university timetables created by users."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile document."
+    },
+    "/users/{userId}/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "User conversation messages history."
+    },
+    "/users/{userId}/memories/{memoryId}": {
+      "schema": { "$ref": "#/entities/MemoryItem" },
+      "description": "User personalized scheduling memory rules."
     }
   }
 }

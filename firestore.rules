@@ -4,5 +4,17 @@ service cloud.firestore {
     match /timetables/{timetableId} {
       allow read, write: if true;
     }
+    match /users/{userId} {
+      allow read, write: if true;
+      match /chats/{chatId} {
+        allow read, write: if true;
+      }
+      match /memories/{memoryId} {
+        allow read, write: if true;
+      }
+      match /timetables/{ttId} {
+        allow read, write: if true;
+      }
+    }
   }
 }

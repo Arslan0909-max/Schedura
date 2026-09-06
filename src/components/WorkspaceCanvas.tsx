@@ -23,6 +23,7 @@ import {
   Check,
 } from 'lucide-react';
 import { TimetableData, TimetableSlot, Conflict } from '../types/timetable';
+import { VoiceInteractionAura } from './VoiceInteractionAura';
 import { exportTimetableToPDF } from '../utils/pdfExport';
 import { exportTimetableToExcel, exportTimetableToWord, printTimetable } from '../utils/exportEngine';
 import { syncToGoogleSheets, signInWithGoogleWorkspace } from '../services/googleWorkspace';
@@ -33,6 +34,8 @@ interface WorkspaceCanvasProps {
   activeTimetable: TimetableData | null;
   allTimetables: TimetableData[];
   isVoiceProcessing?: boolean;
+  isLoading?: boolean;
+  aiState?: 'opening' | 'listening' | 'thinking' | 'speaking' | 'idle';
   onSelectTimetable: (id: string) => void;
   onUpdateTimetable: (updated: TimetableData) => void;
   onLoadSample?: (type: 'CS' | 'BBA') => void;
@@ -44,6 +47,8 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
   activeTimetable,
   allTimetables,
   isVoiceProcessing = false,
+  isLoading = false,
+  aiState = 'idle',
   onSelectTimetable,
   onUpdateTimetable,
   globalSlots,
@@ -256,56 +261,56 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
   const getColorClasses = (colorName?: string) => {
     switch (colorName) {
       case 'indigo':
-        return 'bg-indigo-50/90 border-indigo-200/80 text-indigo-950 hover:border-indigo-300';
+        return 'bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-200/80 dark:border-indigo-800/60 text-indigo-950 dark:text-indigo-200 hover:border-indigo-300 dark:hover:border-indigo-600';
       case 'blue':
-        return 'bg-blue-50/90 border-blue-200/80 text-blue-950 hover:border-blue-300';
+        return 'bg-blue-50/90 dark:bg-blue-950/40 border-blue-200/80 dark:border-blue-800/60 text-blue-950 dark:text-blue-200 hover:border-blue-300 dark:hover:border-blue-600';
       case 'emerald':
-        return 'bg-emerald-50/90 border-emerald-200/80 text-emerald-950 hover:border-emerald-300';
+        return 'bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-200 hover:border-emerald-300 dark:hover:border-emerald-600';
       case 'amber':
-        return 'bg-amber-50/90 border-amber-200/80 text-amber-950 hover:border-amber-300';
+        return 'bg-amber-50/90 dark:bg-amber-950/40 border-amber-200/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 hover:border-amber-300 dark:hover:border-amber-600';
       case 'rose':
-        return 'bg-rose-50/90 border-rose-200/80 text-rose-950 hover:border-rose-300';
+        return 'bg-rose-50/90 dark:bg-rose-950/40 border-rose-200/80 dark:border-rose-800/60 text-rose-950 dark:text-rose-200 hover:border-rose-300 dark:hover:border-rose-600';
       case 'purple':
-        return 'bg-purple-50/90 border-purple-200/80 text-purple-950 hover:border-purple-300';
+        return 'bg-purple-50/90 dark:bg-purple-950/40 border-purple-200/80 dark:border-purple-800/60 text-purple-950 dark:text-purple-200 hover:border-purple-300 dark:hover:border-purple-600';
       case 'teal':
-        return 'bg-teal-50/90 border-teal-200/80 text-teal-950 hover:border-teal-300';
+        return 'bg-teal-50/90 dark:bg-teal-950/40 border-teal-200/80 dark:border-teal-800/60 text-teal-950 dark:text-teal-200 hover:border-teal-300 dark:hover:border-teal-600';
       default:
-        return 'bg-zinc-50 border-zinc-200 text-zinc-900 hover:border-zinc-300';
+        return 'bg-zinc-50 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700';
     }
   };
 
   const getPillColor = (colorName?: string) => {
     switch (colorName) {
       case 'indigo':
-        return 'bg-indigo-100/90 text-indigo-700';
+        return 'bg-indigo-100/90 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300';
       case 'blue':
-        return 'bg-blue-100/90 text-blue-700';
+        return 'bg-blue-100/90 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300';
       case 'emerald':
-        return 'bg-emerald-100/90 text-emerald-700';
+        return 'bg-emerald-100/90 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300';
       case 'amber':
-        return 'bg-amber-100/90 text-amber-700';
+        return 'bg-amber-100/90 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300';
       case 'rose':
-        return 'bg-rose-100/90 text-rose-700';
+        return 'bg-rose-100/90 dark:bg-rose-900/50 text-rose-700 dark:text-rose-300';
       case 'purple':
-        return 'bg-purple-100/90 text-purple-700';
+        return 'bg-purple-100/90 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300';
       case 'teal':
-        return 'bg-teal-100/90 text-teal-700';
+        return 'bg-teal-100/90 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300';
       default:
-        return 'bg-zinc-200 text-zinc-700';
+        return 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300';
     }
   };
 
   return (
     <main
       id="schedura-workspace-canvas"
-      className="flex-1 min-w-0 h-full bg-[#F8F9FA] flex flex-col overflow-hidden select-none"
+      className="flex-1 min-w-0 h-full bg-[#F8F9FA] dark:bg-[#0c0d12] flex flex-col overflow-hidden select-none"
     >
       {/* Top Header matching exact screenshot: "Work Space" with Export and Share */}
-      <header className="h-14 border-b border-zinc-200/70 px-6 flex items-center justify-between bg-white/70 backdrop-blur-md shrink-0 z-10">
+      <header className="h-14 border-b border-zinc-200/70 dark:border-zinc-800 px-6 flex items-center justify-between bg-white/70 dark:bg-[#121318]/70 backdrop-blur-md shrink-0 z-10">
         <div className="flex items-center gap-3">
-          <h1 className="text-[17px] font-semibold text-zinc-900 tracking-tight">Work Space</h1>
+          <h1 className="text-[17px] font-semibold text-zinc-900 dark:text-white tracking-tight">Work Space</h1>
           {activeTimetable && (
-            <span className="text-[13px] text-zinc-500 font-normal">
+            <span className="text-[13px] text-zinc-500 dark:text-zinc-400 font-normal">
               — {activeTimetable.semester} ({activeTimetable.section})
             </span>
           )}
@@ -314,7 +319,7 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
         {/* Top Right Action Buttons with Export Dropdown */}
         <div className="flex items-center gap-2.5">
           {syncStatus && (
-            <div className="px-3 py-1 rounded-xl bg-zinc-900 text-white text-[11.5px] font-medium animate-in fade-in flex items-center gap-1.5 shadow-md">
+            <div className="px-3 py-1 rounded-xl bg-zinc-900 dark:bg-zinc-800 text-white text-[11.5px] font-medium animate-in fade-in flex items-center gap-1.5 shadow-md">
               <Sparkles className="w-3 h-3 text-indigo-400" />
               <span>{syncStatus}</span>
             </div>
@@ -326,10 +331,10 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
               id="btn-workspace-export"
               onClick={() => setShowExportMenu(!showExportMenu)}
               disabled={!activeTimetable}
-              className={`px-3.5 py-1.5 rounded-xl border border-zinc-200/80 bg-white text-[13px] font-medium transition-all duration-150 flex items-center gap-1.5 shadow-2xs ${
+              className={`px-3.5 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700 bg-white dark:bg-[#181920] text-[13px] font-medium transition-all duration-150 flex items-center gap-1.5 shadow-2xs ${
                 activeTimetable
-                  ? 'text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 active:scale-95'
-                  : 'text-zinc-300 border-zinc-200 cursor-not-allowed'
+                  ? 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600 active:scale-95'
+                  : 'text-zinc-300 dark:text-zinc-600 border-zinc-200 dark:border-zinc-800 cursor-not-allowed'
               }`}
               title="Export Timetable in multiple formats"
             >
@@ -339,73 +344,73 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
             </button>
 
             {showExportMenu && activeTimetable && (
-              <div className="absolute top-10 right-0 w-64 p-1.5 bg-white/95 backdrop-blur-2xl rounded-2xl shadow-xl border border-zinc-200/80 z-50 text-[12.5px] animate-in fade-in zoom-in-95 space-y-0.5">
-                <div className="px-3 py-1.5 text-[10.5px] font-semibold text-zinc-400 uppercase tracking-wider">
+              <div className="absolute top-10 right-0 w-64 p-1.5 bg-white/95 dark:bg-[#181920]/95 backdrop-blur-2xl rounded-2xl shadow-xl border border-zinc-200/80 dark:border-zinc-700 z-50 text-[12.5px] animate-in fade-in zoom-in-95 space-y-0.5">
+                <div className="px-3 py-1.5 text-[10.5px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
                   Export Document Formats
                 </div>
 
                 <button
                   type="button"
                   onClick={handleExportPDF}
-                  className="w-full text-left px-3 py-2 rounded-xl text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2.5"
+                  className="w-full text-left px-3 py-2 rounded-xl text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2.5"
                 >
                   <FileText className="w-4 h-4 text-rose-500" />
                   <div className="flex-1">
                     <div className="font-medium text-[12.5px]">PDF Document (.pdf)</div>
-                    <div className="text-[10.5px] text-zinc-400">High-resolution vector printable grid</div>
+                    <div className="text-[10.5px] text-zinc-400 dark:text-zinc-500">High-resolution vector printable grid</div>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleExportWord}
-                  className="w-full text-left px-3 py-2 rounded-xl text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2.5"
+                  className="w-full text-left px-3 py-2 rounded-xl text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2.5"
                 >
                   <FileText className="w-4 h-4 text-blue-600" />
                   <div className="flex-1">
                     <div className="font-medium text-[12.5px]">Microsoft Word (.doc)</div>
-                    <div className="text-[10.5px] text-zinc-400">Editable schedule document table</div>
+                    <div className="text-[10.5px] text-zinc-400 dark:text-zinc-500">Editable schedule document table</div>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleExportExcel}
-                  className="w-full text-left px-3 py-2 rounded-xl text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2.5"
+                  className="w-full text-left px-3 py-2 rounded-xl text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2.5"
                 >
                   <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                   <div className="flex-1">
                     <div className="font-medium text-[12.5px]">Microsoft Excel (.xlsx)</div>
-                    <div className="text-[10.5px] text-zinc-400">Multi-tab spreadsheet matrix</div>
+                    <div className="text-[10.5px] text-zinc-400 dark:text-zinc-500">Multi-tab spreadsheet matrix</div>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="w-full text-left px-3 py-2 rounded-xl text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2.5"
+                  className="w-full text-left px-3 py-2 rounded-xl text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2.5"
                 >
-                  <Printer className="w-4 h-4 text-zinc-600" />
+                  <Printer className="w-4 h-4 text-zinc-600 dark:text-zinc-400" />
                   <div className="flex-1">
                     <div className="font-medium text-[12.5px]">Print Timetable</div>
-                    <div className="text-[10.5px] text-zinc-400">Direct print layout for campus boards</div>
+                    <div className="text-[10.5px] text-zinc-400 dark:text-zinc-500">Direct print layout for campus boards</div>
                   </div>
                 </button>
 
-                <div className="my-1 border-t border-zinc-100" />
-                <div className="px-3 py-1 text-[10.5px] font-semibold text-zinc-400 uppercase tracking-wider">
+                <div className="my-1 border-t border-zinc-100 dark:border-zinc-800" />
+                <div className="px-3 py-1 text-[10.5px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
                   Cloud Sync
                 </div>
 
                 <button
                   type="button"
                   onClick={handleSyncSheets}
-                  className="w-full text-left px-3 py-2 rounded-xl text-zinc-800 hover:bg-zinc-100 transition-colors flex items-center gap-2.5"
+                  className="w-full text-left px-3 py-2 rounded-xl text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2.5"
                 >
                   <Cloud className="w-4 h-4 text-emerald-600" />
                   <div className="flex-1">
                     <div className="font-medium text-[12.5px]">Sync to Google Sheets</div>
-                    <div className="text-[10.5px] text-zinc-400">Save directly to your Google Drive</div>
+                    <div className="text-[10.5px] text-zinc-400 dark:text-zinc-500">Save directly to your Google Drive</div>
                   </div>
                 </button>
               </div>
@@ -418,8 +423,8 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
             disabled={!activeTimetable}
             className={`px-3.5 py-1.5 rounded-xl text-[13px] font-medium transition-all duration-150 flex items-center gap-2 shadow-sm ${
               activeTimetable
-                ? 'bg-zinc-900 hover:bg-zinc-800 text-white active:scale-95'
-                : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'
+                ? 'bg-zinc-900 dark:bg-indigo-600 hover:bg-zinc-800 dark:hover:bg-indigo-700 text-white active:scale-95'
+                : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-600 cursor-not-allowed'
             }`}
           >
             {copiedShare ? (
@@ -439,7 +444,7 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
 
       {/* Sub-toolbar: Active Semester/Section Tabs & View Mode & Conflict Engine Status */}
       {activeTimetable && (
-        <div className="px-6 py-2.5 border-b border-zinc-200/60 bg-white/40 backdrop-blur-sm flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="px-6 py-2.5 border-b border-zinc-200/60 dark:border-zinc-800 bg-white/40 dark:bg-[#121318]/40 backdrop-blur-sm flex flex-wrap items-center justify-between gap-3 shrink-0">
           {/* Section Tabs & View Mode Switcher */}
           <div className="flex items-center gap-3 overflow-x-auto py-0.5">
             <div className="flex items-center gap-1.5">
@@ -449,8 +454,8 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
                   onClick={() => onSelectTimetable(t.id)}
                   className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all whitespace-nowrap ${
                     t.id === activeTimetable.id
-                      ? 'bg-black text-white shadow-xs'
-                      : 'bg-white/80 border border-zinc-200/70 text-zinc-600 hover:bg-zinc-100'
+                      ? 'bg-black dark:bg-indigo-600 text-white shadow-xs'
+                      : 'bg-white/80 dark:bg-[#181920]/80 border border-zinc-200/70 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                   }`}
                 >
                   {t.semester} ({t.section})
@@ -459,14 +464,14 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
             </div>
 
             {/* View Mode Switcher */}
-            <div className="flex items-center bg-zinc-100/90 p-0.5 rounded-xl border border-zinc-200/80">
+            <div className="flex items-center bg-zinc-100/90 dark:bg-zinc-800/90 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700">
               <button
                 type="button"
                 onClick={() => setViewMode('grid')}
                 className={`px-2.5 py-1 rounded-lg text-[11.5px] font-medium transition-all ${
                   viewMode === 'grid'
-                    ? 'bg-white text-zinc-900 shadow-2xs font-semibold'
-                    : 'text-zinc-600 hover:text-zinc-900'
+                    ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-2xs font-semibold'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
                 Grid View
@@ -476,8 +481,8 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
                 onClick={() => setViewMode('rooms')}
                 className={`px-2.5 py-1 rounded-lg text-[11.5px] font-medium transition-all ${
                   viewMode === 'rooms'
-                    ? 'bg-white text-zinc-900 shadow-2xs font-semibold'
-                    : 'text-zinc-600 hover:text-zinc-900'
+                    ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-2xs font-semibold'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
                 Room Allocation
@@ -487,8 +492,8 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
                 onClick={() => setViewMode('teachers')}
                 className={`px-2.5 py-1 rounded-lg text-[11.5px] font-medium transition-all ${
                   viewMode === 'teachers'
-                    ? 'bg-white text-zinc-900 shadow-2xs font-semibold'
-                    : 'text-zinc-600 hover:text-zinc-900'
+                    ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white shadow-2xs font-semibold'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
                 Faculty Schedule
@@ -496,30 +501,38 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
             </div>
           </div>
 
-          {/* Engine Status Pill */}
+          {/* Engine Status & AI State Indicator Pills */}
           <div className="flex items-center gap-2">
+            {/* Voice Interaction Aura Component */}
+            {aiState !== 'idle' && (
+              <VoiceInteractionAura
+                stateOverride={aiState}
+                size="sm"
+              />
+            )}
+
             <div
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-medium ${
                 conflicts.length === 0
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70'
-                  : 'bg-rose-50 text-rose-700 border border-rose-200/70'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60'
+                  : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200/70 dark:border-rose-800/60'
               }`}
             >
               {conflicts.length === 0 ? (
                 <>
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>Conflict-Free Global Memory</span>
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
                   <span>{conflicts.length} Conflict(s) in Global State</span>
                 </>
               )}
             </div>
 
             {/* Shift Badge */}
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-100 text-zinc-600 border border-zinc-200/60">
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-700">
               Shift: {activeTimetable.shift}
             </span>
           </div>
@@ -535,14 +548,14 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
             className="pointer-events-none absolute z-40 animate-pencil-track flex items-center gap-2 select-none"
           >
             {/* Elegant Pencil Badge with Luminous Point */}
-            <div className="relative flex items-center justify-center p-2 rounded-2xl bg-white/95 backdrop-blur-md border border-zinc-200/90 shadow-[0_10px_25px_rgba(0,0,0,0.12)]">
+            <div className="relative flex items-center justify-center p-2 rounded-2xl bg-white/95 dark:bg-[#181920]/95 backdrop-blur-md border border-zinc-200/90 dark:border-zinc-700 shadow-[0_10px_25px_rgba(0,0,0,0.12)]">
               <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.9)] animate-ping opacity-80" />
               <span className="absolute -top-0.5 -left-0.5 w-1.5 h-1.5 rounded-full bg-indigo-600 shadow-xs" />
-              <Pencil className="w-4 h-4 text-zinc-900 -rotate-45 transform origin-bottom-left" />
+              <Pencil className="w-4 h-4 text-zinc-900 dark:text-zinc-100 -rotate-45 transform origin-bottom-left" />
             </div>
 
             {/* Subtle Pill Tag */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/90 text-white text-[11px] font-medium backdrop-blur-md shadow-lg border border-zinc-800/80">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/90 dark:bg-zinc-800/90 text-white text-[11px] font-medium backdrop-blur-md shadow-lg border border-zinc-800/80 dark:border-zinc-700">
               <Sparkles className="w-3 h-3 text-amber-300 animate-spin" style={{ animationDuration: '3s' }} />
               <span>AI Sketching Grid...</span>
             </div>
@@ -552,51 +565,51 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
           /* Elegant Drafting Pencil Sketch Animation on Technical Blueprint Grid */
           <div
             id="workspace-pencil-sketching"
-            className="w-full h-full min-h-[460px] bg-white rounded-3xl border border-zinc-200/90 shadow-[0_8px_30px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col p-6 animate-in fade-in duration-300 relative"
+            className="w-full h-full min-h-[460px] bg-white dark:bg-[#181920] rounded-3xl border border-zinc-200/90 dark:border-zinc-800 shadow-[0_8px_30px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] overflow-hidden flex flex-col p-6 animate-in fade-in duration-300 relative"
           >
             {/* Blueprint Grid Drafting Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-zinc-100">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-xs">
+                <div className="w-9 h-9 rounded-xl bg-zinc-900 dark:bg-indigo-600 text-white flex items-center justify-center shadow-xs">
                   <Pencil className="w-4 h-4 animate-bounce" />
                 </div>
                 <div>
-                  <h3 className="text-[14.5px] font-semibold text-zinc-900 tracking-tight">
+                  <h3 className="text-[14.5px] font-semibold text-zinc-900 dark:text-white tracking-tight">
                     Drafting Schedule Blueprint
                   </h3>
-                  <p className="text-[11.5px] text-zinc-500">
+                  <p className="text-[11.5px] text-zinc-500 dark:text-zinc-400">
                     Arranging courses, assigning rooms, and balancing faculty allocations...
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 text-zinc-700 text-[11px] font-medium border border-zinc-200/60">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-[11px] font-medium border border-zinc-200/60 dark:border-zinc-700">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Zero Clashes Verified</span>
               </div>
             </div>
 
             {/* Architectural Drafting Blueprint Canvas with Pencil Moving Effect */}
-            <div className="mt-5 flex-1 rounded-2xl bg-zinc-50/60 border border-zinc-200/80 p-4 relative flex flex-col justify-between overflow-hidden">
+            <div className="mt-5 flex-1 rounded-2xl bg-zinc-50/60 dark:bg-zinc-900/60 border border-zinc-200/80 dark:border-zinc-800 p-4 relative flex flex-col justify-between overflow-hidden">
               {/* Technical Grid lines drawing */}
               <div className="grid grid-cols-5 gap-3 flex-1">
                 {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, dIdx) => (
                   <div key={day} className="flex flex-col gap-2.5">
-                    <div className="h-6 rounded-lg bg-zinc-200/70 flex items-center justify-center text-[10.5px] font-semibold text-zinc-600">
+                    <div className="h-6 rounded-lg bg-zinc-200/70 dark:bg-zinc-800 flex items-center justify-center text-[10.5px] font-semibold text-zinc-600 dark:text-zinc-300">
                       {day}
                     </div>
                     {[0, 1, 2, 3, 4].map((slotIdx) => (
                       <div
                         key={slotIdx}
-                        className="flex-1 min-h-[58px] rounded-xl border border-zinc-200/90 bg-white/90 p-2.5 flex flex-col justify-between relative transition-all duration-300 shadow-2xs"
+                        className="flex-1 min-h-[58px] rounded-xl border border-zinc-200/90 dark:border-zinc-800 bg-white/90 dark:bg-[#181920]/90 p-2.5 flex flex-col justify-between relative transition-all duration-300 shadow-2xs"
                         style={{
                           animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                           animationDelay: `${(dIdx * 5 + slotIdx) * 60}ms`,
                         }}
                       >
-                        <div className="h-2 w-4/5 rounded bg-zinc-200" />
-                        <div className="h-1.5 w-1/2 rounded bg-zinc-100" />
-                        <div className="h-1.5 w-1/3 rounded bg-zinc-100" />
+                        <div className="h-2 w-4/5 rounded bg-zinc-200 dark:bg-zinc-700" />
+                        <div className="h-1.5 w-1/2 rounded bg-zinc-100 dark:bg-zinc-800" />
+                        <div className="h-1.5 w-1/3 rounded bg-zinc-100 dark:bg-zinc-800" />
                       </div>
                     ))}
                   </div>
@@ -605,15 +618,15 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
 
               {/* Centered Floating Sketching Status with Animated Pencil */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="px-5 py-3 rounded-2xl bg-white/95 backdrop-blur-xl border border-zinc-200/90 shadow-xl flex items-center gap-3 animate-in zoom-in-95">
-                  <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center animate-spin" style={{ animationDuration: '4s' }}>
+                <div className="px-5 py-3 rounded-2xl bg-white/95 dark:bg-[#181920]/95 backdrop-blur-xl border border-zinc-200/90 dark:border-zinc-700 shadow-xl flex items-center gap-3 animate-in zoom-in-95">
+                  <div className="w-8 h-8 rounded-full bg-zinc-900 dark:bg-indigo-600 text-white flex items-center justify-center animate-spin" style={{ animationDuration: '4s' }}>
                     <Pencil className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="text-[13px] font-semibold text-zinc-900">
+                    <div className="text-[13px] font-semibold text-zinc-900 dark:text-white">
                       Schedura is sketching timetable grid...
                     </div>
-                    <div className="text-[11px] text-zinc-500">
+                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                       Resolving constraints in real-time
                     </div>
                   </div>
@@ -627,16 +640,16 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
             id="workspace-empty-state"
             className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto select-none animate-in fade-in duration-300"
           >
-            <div className="w-14 h-14 rounded-2xl bg-white border border-zinc-200/80 shadow-xs flex items-center justify-center text-zinc-400 mb-3.5">
+            <div className="w-14 h-14 rounded-2xl bg-white dark:bg-[#181920] border border-zinc-200/80 dark:border-zinc-800 shadow-xs flex items-center justify-center text-zinc-400 dark:text-zinc-500 mb-3.5">
               <Calendar className="w-7 h-7 stroke-[1.25]" />
             </div>
-            <h2 className="text-[17px] font-semibold text-zinc-900 tracking-tight mb-1.5">
+            <h2 className="text-[17px] font-semibold text-zinc-900 dark:text-white tracking-tight mb-1.5">
               Your timetable grid will appear here
             </h2>
-            <p className="text-[13px] text-zinc-500 leading-relaxed max-w-sm mb-4">
+            <p className="text-[13px] text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm mb-4">
               Ask or speak to Schedura in the chat to create, allocate, and orchestrate a clash-free schedule.
             </p>
-            <div className="flex items-center gap-2 text-[11.5px] text-zinc-400">
+            <div className="flex items-center gap-2 text-[11.5px] text-zinc-400 dark:text-zinc-500">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
               <span>Conflict Prevention Standby</span>
             </div>
@@ -646,33 +659,33 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
           <div id="room-allocation-matrix" className="space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-[16px] font-semibold text-zinc-900">Room Allocation Matrix</h2>
-                <p className="text-[12px] text-zinc-500">Real-time room occupancy and collision checks across all week slots</p>
+                <h2 className="text-[16px] font-semibold text-zinc-900 dark:text-white">Room Allocation Matrix</h2>
+                <p className="text-[12px] text-zinc-500 dark:text-zinc-400">Real-time room occupancy and collision checks across all week slots</p>
               </div>
-              <div className="text-[12px] text-zinc-600 bg-white px-3 py-1.5 rounded-xl border border-zinc-200/80 shadow-2xs">
+              <div className="text-[12px] text-zinc-600 dark:text-zinc-300 bg-white dark:bg-[#181920] px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700 shadow-2xs">
                 {roomsData.length} Rooms Allocated
               </div>
             </div>
 
             {roomsData.length === 0 ? (
-              <div className="bg-white rounded-3xl border border-zinc-200/80 p-8 text-center text-zinc-400">
+              <div className="bg-white dark:bg-[#181920] rounded-3xl border border-zinc-200/80 dark:border-zinc-800 p-8 text-center text-zinc-400 dark:text-zinc-500">
                 No classrooms assigned yet.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {roomsData.map(({ room, slots }) => (
-                  <div key={room} className="bg-white rounded-3xl border border-zinc-200/80 p-4 shadow-xs">
-                    <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+                  <div key={room} className="bg-white dark:bg-[#181920] rounded-3xl border border-zinc-200/80 dark:border-zinc-800 p-4 shadow-xs">
+                    <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-800 font-bold text-[12px]">
+                        <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 flex items-center justify-center text-zinc-800 dark:text-zinc-200 font-bold text-[12px]">
                           {room.slice(0, 3)}
                         </div>
                         <div>
-                          <h3 className="text-[14px] font-semibold text-zinc-900">{room}</h3>
-                          <span className="text-[11px] text-zinc-500">{slots.length} Classes Assigned</span>
+                          <h3 className="text-[14px] font-semibold text-zinc-900 dark:text-white">{room}</h3>
+                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{slots.length} Classes Assigned</span>
                         </div>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                      <span className="px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">
                         Operational
                       </span>
                     </div>
@@ -682,15 +695,15 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
                         <div
                           key={s.id}
                           onClick={() => setEditingSlot(s)}
-                          className="p-2.5 rounded-2xl border border-zinc-100 bg-zinc-50/60 hover:bg-zinc-100 cursor-pointer transition-colors text-[12px] flex items-center justify-between"
+                          className="p-2.5 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer transition-colors text-[12px] flex items-center justify-between"
                         >
                           <div>
-                            <div className="font-semibold text-zinc-800">{s.subject}</div>
-                            <div className="text-[11px] text-zinc-500">{s.teacher || 'Instructor TBA'}</div>
+                            <div className="font-semibold text-zinc-800 dark:text-zinc-200">{s.subject}</div>
+                            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{s.teacher || 'Instructor TBA'}</div>
                           </div>
                           <div className="text-right">
-                            <span className="text-[11px] font-medium text-zinc-700">{s.day}</span>
-                            <div className="text-[10px] text-zinc-400">{s.timeSlot}</div>
+                            <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300">{s.day}</span>
+                            <div className="text-[10px] text-zinc-400 dark:text-zinc-500">{s.timeSlot}</div>
                           </div>
                         </div>
                       ))}
@@ -705,33 +718,33 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
           <div id="faculty-schedule-matrix" className="space-y-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-[16px] font-semibold text-zinc-900">Faculty Schedule & Workload</h2>
-                <p className="text-[12px] text-zinc-500">Instructor teaching hours and room allocations across the academic week</p>
+                <h2 className="text-[16px] font-semibold text-zinc-900 dark:text-white">Faculty Schedule & Workload</h2>
+                <p className="text-[12px] text-zinc-500 dark:text-zinc-400">Instructor teaching hours and room allocations across the academic week</p>
               </div>
-              <div className="text-[12px] text-zinc-600 bg-white px-3 py-1.5 rounded-xl border border-zinc-200/80 shadow-2xs">
+              <div className="text-[12px] text-zinc-600 dark:text-zinc-300 bg-white dark:bg-[#181920] px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700 shadow-2xs">
                 {teachersData.length} Faculty Members
               </div>
             </div>
 
             {teachersData.length === 0 ? (
-              <div className="bg-white rounded-3xl border border-zinc-200/80 p-8 text-center text-zinc-400">
+              <div className="bg-white dark:bg-[#181920] rounded-3xl border border-zinc-200/80 dark:border-zinc-800 p-8 text-center text-zinc-400 dark:text-zinc-500">
                 No faculty members assigned yet.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {teachersData.map(({ teacher, slots, totalHours }) => (
-                  <div key={teacher} className="bg-white rounded-3xl border border-zinc-200/80 p-4 shadow-xs">
-                    <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
+                  <div key={teacher} className="bg-white dark:bg-[#181920] rounded-3xl border border-zinc-200/80 dark:border-zinc-800 p-4 shadow-xs">
+                    <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-[12px]">
-                          <User className="w-4 h-4 text-indigo-600" />
+                        <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-800/60 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-[12px]">
+                          <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                         </div>
                         <div>
-                          <h3 className="text-[14px] font-semibold text-zinc-900">{teacher}</h3>
-                          <span className="text-[11px] text-zinc-500">{totalHours} Teaching Classes/Week</span>
+                          <h3 className="text-[14px] font-semibold text-zinc-900 dark:text-white">{teacher}</h3>
+                          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">{totalHours} Teaching Classes/Week</span>
                         </div>
                       </div>
-                      <span className="px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                      <span className="px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
                         {totalHours}h Load
                       </span>
                     </div>
@@ -741,15 +754,15 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
                         <div
                           key={s.id}
                           onClick={() => setEditingSlot(s)}
-                          className="p-2.5 rounded-2xl border border-zinc-100 bg-zinc-50/60 hover:bg-zinc-100 cursor-pointer transition-colors text-[12px] flex items-center justify-between"
+                          className="p-2.5 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer transition-colors text-[12px] flex items-center justify-between"
                         >
                           <div>
-                            <div className="font-semibold text-zinc-800">{s.subject}</div>
-                            <div className="text-[11px] text-zinc-500">{s.room || 'Room TBA'}</div>
+                            <div className="font-semibold text-zinc-800 dark:text-zinc-200">{s.subject}</div>
+                            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{s.room || 'Room TBA'}</div>
                           </div>
                           <div className="text-right">
-                            <span className="text-[11px] font-medium text-zinc-700">{s.day}</span>
-                            <div className="text-[10px] text-zinc-400">{s.timeSlot}</div>
+                            <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300">{s.day}</span>
+                            <div className="text-[10px] text-zinc-400 dark:text-zinc-500">{s.timeSlot}</div>
                           </div>
                         </div>
                       ))}
@@ -763,21 +776,21 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
           /* Active Live Grid Timetable */
           <div
             id="live-timetable-grid"
-            className="w-full bg-white rounded-3xl border border-zinc-200/80 shadow-[0_4px_24px_rgba(0,0,0,0.03)] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            className="w-full bg-white dark:bg-[#181920] rounded-3xl border border-zinc-200/80 dark:border-zinc-800 shadow-[0_4px_24px_rgba(0,0,0,0.03)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           >
             {/* Timetable Title Header inside Card */}
-            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-[#14151b]">
               <div>
-                <h2 className="text-[16px] font-semibold text-zinc-900">
+                <h2 className="text-[16px] font-semibold text-zinc-900 dark:text-white">
                   {activeTimetable.semester} • {activeTimetable.section}
                 </h2>
-                <p className="text-[12px] text-zinc-500 mt-0.5">
+                <p className="text-[12px] text-zinc-500 dark:text-zinc-400 mt-0.5">
                   Drag and drop class blocks to re-schedule • Click any slot for inline editing
                 </p>
               </div>
 
               {dragWarning && (
-                <div className="px-3 py-1 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-[11.5px] font-medium flex items-center gap-1.5 animate-pulse">
+                <div className="px-3 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/80 text-rose-700 dark:text-rose-300 text-[11.5px] font-medium flex items-center gap-1.5 animate-pulse">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>{dragWarning}</span>
                 </div>
@@ -788,17 +801,17 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left min-w-[760px]">
                 <thead>
-                  <tr className="border-b border-zinc-200/80 bg-zinc-50/80">
-                    <th className="w-24 px-4 py-3.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider sticky left-0 bg-zinc-50/95 z-10 border-r border-zinc-200/60">
+                  <tr className="border-b border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/80 dark:bg-[#14151b]">
+                    <th className="w-24 px-4 py-3.5 text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider sticky left-0 bg-zinc-50/95 dark:bg-[#14151b] z-10 border-r border-zinc-200/60 dark:border-zinc-800">
                       Day
                     </th>
                     {activeTimetable.timeSlots.map((slot) => (
                       <th
                         key={slot}
-                        className="px-3 py-3 text-center text-[11.5px] font-semibold text-zinc-600 border-r border-zinc-200/60 last:border-r-0"
+                        className="px-3 py-3 text-center text-[11.5px] font-semibold text-zinc-600 dark:text-zinc-300 border-r border-zinc-200/60 dark:border-zinc-800 last:border-r-0"
                       >
                         <div className="flex items-center justify-center gap-1">
-                          <Clock className="w-3 h-3 text-zinc-400" />
+                          <Clock className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
                           <span>{slot}</span>
                         </div>
                       </th>
@@ -806,14 +819,14 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-zinc-200/60">
+                <tbody className="divide-y divide-zinc-200/60 dark:divide-zinc-800">
                   {activeTimetable.days.map((day) => (
-                    <tr key={day} className="group hover:bg-zinc-50/40 transition-colors">
+                    <tr key={day} className="group hover:bg-zinc-50/40 dark:hover:bg-zinc-800/20 transition-colors">
                       {/* Day Header Cell */}
-                      <td className="px-4 py-3 text-[13px] font-semibold text-zinc-900 sticky left-0 bg-white/95 group-hover:bg-zinc-50/90 z-10 border-r border-zinc-200/60 shadow-2xs">
+                      <td className="px-4 py-3 text-[13px] font-semibold text-zinc-900 dark:text-zinc-100 sticky left-0 bg-white/95 dark:bg-[#181920] group-hover:bg-zinc-50/90 dark:group-hover:bg-zinc-850 z-10 border-r border-zinc-200/60 dark:border-zinc-800 shadow-2xs">
                         <div className="flex flex-col">
                           <span>{day.slice(0, 3)}</span>
-                          <span className="text-[10.5px] text-zinc-400 font-normal">{day}</span>
+                          <span className="text-[10.5px] text-zinc-400 dark:text-zinc-500 font-normal">{day}</span>
                         </div>
                       </td>
 
@@ -840,11 +853,11 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
                             onDragOver={(e) => handleDragOver(e, day, timeSlot)}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => handleDrop(e, day, timeSlot)}
-                            className={`p-2 border-r border-zinc-200/60 last:border-r-0 h-24 align-top transition-all duration-150 relative ${
+                            className={`p-2 border-r border-zinc-200/60 dark:border-zinc-800 last:border-r-0 h-24 align-top transition-all duration-150 relative ${
                               isTargetCell
                                 ? dragWarning
-                                  ? 'bg-rose-50/80 ring-2 ring-rose-400 ring-inset'
-                                  : 'bg-indigo-50/80 ring-2 ring-indigo-400 ring-inset'
+                                  ? 'bg-rose-50/80 dark:bg-rose-950/40 ring-2 ring-rose-400 dark:ring-rose-600 ring-inset'
+                                  : 'bg-indigo-50/80 dark:bg-indigo-950/40 ring-2 ring-indigo-400 dark:ring-indigo-600 ring-inset'
                                 : ''
                             }`}
                           >
@@ -853,13 +866,13 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
                                 /* Break Card */
                                 <div
                                   onClick={() => setEditingSlot(cellSlot)}
-                                  className="w-full h-full rounded-2xl p-2.5 bg-zinc-100/80 border border-zinc-200/60 flex flex-col justify-center items-center text-center cursor-pointer hover:bg-zinc-200/60 transition-all group/break"
+                                  className="w-full h-full rounded-2xl p-2.5 bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200/60 dark:border-zinc-700 flex flex-col justify-center items-center text-center cursor-pointer hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 transition-all group/break"
                                 >
-                                  <Coffee className="w-4 h-4 text-zinc-400 mb-1 group-hover/break:scale-110 transition-transform" />
-                                  <span className="text-[11.5px] font-medium text-zinc-600">
+                                  <Coffee className="w-4 h-4 text-zinc-400 dark:text-zinc-500 mb-1 group-hover/break:scale-110 transition-transform" />
+                                  <span className="text-[11.5px] font-medium text-zinc-600 dark:text-zinc-300">
                                     {cellSlot.breakLabel || 'Break & Prayer'}
                                   </span>
-                                  <span className="text-[10px] text-zinc-400">Recess</span>
+                                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500">Recess</span>
                                 </div>
                               ) : (
                                 /* Class Slot Card */
@@ -878,7 +891,7 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
                                     </span>
                                     {hasConflict && (
                                       <AlertTriangle
-                                        className="w-3.5 h-3.5 text-rose-600 shrink-0"
+                                        className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0"
                                         title="Double-booking conflict detected!"
                                       />
                                     )}
@@ -929,7 +942,7 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
                                   };
                                   setEditingSlot(newSlot);
                                 }}
-                                className="w-full h-full rounded-2xl border border-dashed border-zinc-200 hover:border-zinc-400 hover:bg-zinc-50/60 flex items-center justify-center text-zinc-300 hover:text-zinc-500 cursor-pointer transition-colors group/empty"
+                                className="w-full h-full rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600 hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40 flex items-center justify-center text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer transition-colors group/empty"
                               >
                                 <Plus className="w-4 h-4 opacity-0 group-hover/empty:opacity-100 transition-opacity" />
                               </div>

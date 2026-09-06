@@ -101,14 +101,14 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, onMem
             </div>
             <div>
               <h3 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight flex items-center gap-2">
-                Catbot Persistent Memory
+                Schedura AI Persistent Memory
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-                  {memories.length} Memories Saved
+                  {memories.length} Memories & Projects Saved
                 </span>
               </h3>
               <p className="text-[12px] text-zinc-500 dark:text-zinc-400">
-                Remember rules, teacher preferences & project details for future schedules
+                Institutional memory for teachers, rooms, cross-project collision prevention & university policies
               </p>
             </div>
           </div>
@@ -205,35 +205,35 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, onMem
           {isAdding && (
             <form
               onSubmit={handleSave}
-              className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/70 via-purple-50/50 to-white border border-indigo-200 shadow-sm space-y-3 animate-in fade-in zoom-in-95 duration-150"
+              className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/70 via-purple-50/50 to-white dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-zinc-900/60 border border-indigo-200/80 dark:border-indigo-800/60 shadow-sm space-y-3 animate-in fade-in zoom-in-95 duration-150"
             >
-              <div className="flex items-center justify-between pb-2 border-b border-indigo-100">
-                <span className="text-[13px] font-bold text-indigo-900 flex items-center gap-1.5">
-                  <Bookmark className="w-4 h-4 text-indigo-600" />
+              <div className="flex items-center justify-between pb-2 border-b border-indigo-100 dark:border-indigo-900/60">
+                <span className="text-[13px] font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                  <Bookmark className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                   {editingId ? 'Edit Memory' : 'New Persistent Memory'}
                 </span>
-                <span className="text-[11px] text-zinc-500">Auto-saved to Catbot Memory</span>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Auto-saved to Schedura Memory</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-zinc-700 uppercase mb-1">Title</label>
+                  <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 uppercase mb-1">Title</label>
                   <input
                     type="text"
                     required
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g. Dr. Ayesha Friday Shift"
-                    className="w-full px-3 py-1.5 text-[13px] bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none"
+                    className="w-full px-3 py-1.5 text-[13px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-zinc-700 uppercase mb-1">Category</label>
+                  <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 uppercase mb-1">Category</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as any)}
-                    className="w-full px-3 py-1.5 text-[13px] bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none"
+                    className="w-full px-3 py-1.5 text-[13px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none"
                   >
                     <option value="teacher">Teacher / Faculty</option>
                     <option value="room">Room / Lab Facility</option>
@@ -246,19 +246,19 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, onMem
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-700 uppercase mb-1">Memory Content</label>
+                <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 uppercase mb-1">Memory Content</label>
                 <textarea
                   required
                   rows={2}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   placeholder="Describe the exact detail or rule Catbot should remember forever..."
-                  className="w-full px-3 py-2 text-[13px] bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none resize-none"
+                  className="w-full px-3 py-2 text-[13px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-700 uppercase mb-1">
+                <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 uppercase mb-1">
                   Tags (Comma separated)
                 </label>
                 <input
@@ -266,7 +266,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, onMem
                   value={tagsInput}
                   onChange={(e) => setTagsInput(e.target.value)}
                   placeholder="e.g. friday, lab, morning"
-                  className="w-full px-3 py-1.5 text-[13px] bg-white border border-zinc-200 rounded-xl focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none"
+                  className="w-full px-3 py-1.5 text-[13px] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-900 dark:text-zinc-100 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none"
                 />
               </div>
 
@@ -274,7 +274,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, onMem
                 <button
                   type="button"
                   onClick={() => setIsAdding(false)}
-                  className="px-3.5 py-1.5 text-[12px] font-medium text-zinc-600 hover:text-zinc-800"
+                  className="px-3.5 py-1.5 text-[12px] font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
                 >
                   Cancel
                 </button>
@@ -292,9 +292,9 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, onMem
           {/* Memory List */}
           {filteredMemories.length === 0 ? (
             <div className="text-center py-10 px-4">
-              <Brain className="w-10 h-10 text-zinc-300 mx-auto mb-2 animate-bounce" />
-              <p className="text-zinc-600 text-[14px] font-medium">No memories found</p>
-              <p className="text-zinc-400 text-[12px] max-w-sm mx-auto mt-1">
+              <Brain className="w-10 h-10 text-zinc-300 dark:text-zinc-600 mx-auto mb-2 animate-bounce" />
+              <p className="text-zinc-600 dark:text-zinc-300 text-[14px] font-medium">No memories found</p>
+              <p className="text-zinc-400 dark:text-zinc-500 text-[12px] max-w-sm mx-auto mt-1">
                 {searchQuery
                   ? 'Try adjusting your search filters.'
                   : 'Add custom rules or preferences so Catbot can personalize your future timetables.'}
@@ -305,37 +305,37 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, onMem
               {filteredMemories.map((item) => (
                 <div
                   key={item.id}
-                  className="p-4 rounded-2xl bg-white border border-zinc-200/80 hover:border-indigo-300 shadow-xs hover:shadow-md transition-all duration-200 group relative soft-bounce"
+                  className="p-4 rounded-2xl bg-white dark:bg-[#1F2028] border border-zinc-200/80 dark:border-zinc-800 hover:border-indigo-300 dark:hover:border-indigo-600/50 shadow-xs hover:shadow-md transition-all duration-200 group relative soft-bounce"
                 >
                   <div className="flex items-start justify-between gap-3 mb-1.5">
                     <div className="flex items-center gap-2">
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
                           item.category === 'teacher'
-                            ? 'bg-blue-100 text-blue-700'
+                            ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
                             : item.category === 'room'
-                            ? 'bg-purple-100 text-purple-700'
+                            ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300'
                             : item.category === 'rule'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                            : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
                         }`}
                       >
                         {item.category}
                       </span>
-                      <h4 className="text-[14px] font-bold text-zinc-900">{item.title}</h4>
+                      <h4 className="text-[14px] font-bold text-zinc-900 dark:text-white">{item.title}</h4>
                     </div>
 
                     <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleStartEdit(item)}
-                        className="p-1 rounded-lg text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                        className="p-1 rounded-lg text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
                         title="Edit memory"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDelete(item.id)}
-                        className="p-1 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        className="p-1 rounded-lg text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                         title="Delete memory"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -343,12 +343,12 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, onMem
                     </div>
                   </div>
 
-                  <p className="text-[13px] text-zinc-600 leading-relaxed mb-2">{item.content}</p>
+                  <p className="text-[13px] text-zinc-600 dark:text-zinc-300 leading-relaxed mb-2">{item.content}</p>
 
                   {item.tags && item.tags.length > 0 && (
-                    <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-zinc-100">
+                    <div className="flex items-center gap-1 flex-wrap pt-1 border-t border-zinc-100 dark:border-zinc-800">
                       {item.tags.map((tag, idx) => (
-                        <span key={idx} className="text-[10.5px] px-2 py-0.2 rounded-md bg-zinc-100 text-zinc-500">
+                        <span key={idx} className="text-[10.5px] px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                           #{tag}
                         </span>
                       ))}
@@ -362,7 +362,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({ isOpen, onClose, onMem
 
         {/* Footer */}
         <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/80 flex items-center justify-between text-[12px] text-zinc-500 dark:text-zinc-400">
-          <span>Synced with Catbot system instructions</span>
+          <span>Synced with Schedura AI system instructions</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 rounded-xl bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black font-medium punch-tap"

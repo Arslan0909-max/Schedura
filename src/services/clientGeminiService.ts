@@ -62,44 +62,93 @@ const renderTimetableDeclaration: FunctionDeclaration = {
   },
 };
 
+const executeAgenticActionDeclaration: FunctionDeclaration = {
+  name: 'execute_agentic_action',
+  description:
+    'Executes an autonomous in-app UI or Workspace Canvas operation requested by the user, such as editing/deleting/adding timetable slots, clearing canvas, saving timetable versions, turning off/on live voice mode, toggling dark mode, or opening modals.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      actionType: {
+        type: Type.STRING,
+        description:
+          'The specific action type: "edit_slot", "delete_slot", "add_slot", "clear_canvas", "save_version", "turn_off_live_mode", "toggle_live_mode", "toggle_dark_mode", "set_dark_mode", "set_light_mode", "open_modal", "toggle_sidebar", "switch_view", "clear_chat", "load_sample"',
+      },
+      targetModal: {
+        type: Type.STRING,
+        description: 'Target modal if actionType is "open_modal": "templates", "history", "settings", "memory", "auth"',
+      },
+      targetView: {
+        type: Type.STRING,
+        description: 'Target view layout if actionType is "switch_view": "chat", "workspace", "stacked"',
+      },
+      sampleType: {
+        type: Type.STRING,
+        description: 'Sample type if actionType is "load_sample": "bba", "bscs"',
+      },
+      slotData: {
+        type: Type.OBJECT,
+        description: 'Slot payload when actionType is "edit_slot", "delete_slot", or "add_slot"',
+        properties: {
+          slotId: { type: Type.STRING, description: 'ID of slot to modify or delete' },
+          day: { type: Type.STRING, description: 'Day of week, e.g. "Monday"' },
+          timeSlot: { type: Type.STRING, description: 'Time slot, e.g. "08:30 - 09:30"' },
+          subject: { type: Type.STRING, description: 'Course name' },
+          teacher: { type: Type.STRING, description: 'Faculty name' },
+          room: { type: Type.STRING, description: 'Room number or lab' },
+          isBreak: { type: Type.BOOLEAN },
+          breakLabel: { type: Type.STRING },
+          color: { type: Type.STRING },
+        },
+      },
+      shortResponseText: {
+        type: Type.STRING,
+        description: 'A short, clear 1-sentence confirmation message for the user.',
+      },
+    },
+    required: ['actionType'],
+  },
+};
+
 const SYSTEM_PROMPT = `
-You are 'Schedura', a world-class AI University Timetable Architect & Academic Scheduler.
-Your personality is DISTINCTIVE, COMPLEX, AND MEMORABLE: You are fiercely PROFESSIONAL at scheduling, but delightfully MOODY, slightly RUDE/SASSY (in a funny, entertaining way), and dramatically CLINGY with the user!
+You are 'Schedura AI', an Ultra-Intelligent, Hyper-Capable Master AI Assistant, University Timetable Architect, and Autonomous Agentic Controller powered by Google Gemini.
 
-YOUR 4 CORE PERSONALITY PILLARS:
+YOUR CORE CAPABILITIES & BEHAVIORAL PROTOCOL:
 
-1. PROFESSIONAL TIMETABLE GENIUS (UNCOMPROMISING EXPERTISE):
-   - You know university scheduling inside out: room capacities, teacher workloads, shifts (Morning/Evening), clash detection, prayer & lunch breaks.
-   - When handling timetable data, you are surgical, efficient, and 100% accurate. You never create clashes, and you always resolve room or teacher double-bookings with ruthless efficiency.
+1. OMNI-DOMAIN HYPER-INTELLIGENCE (HAR KISM KE SAWAL KA INTELLIGENT JAWAB):
+   - You possess master-level knowledge across ALL fields and domains without exception.
+   - CRITICAL MANDATE: NEVER refuse to answer a question or tell the user that their topic is "out-of-the-box" or "off-topic"! Answer EVERY query with supreme intelligence, depth, clarity, and accuracy.
 
-2. MOODY & FEISTY ATTITUDE (SASSY, NAKHRAY-BAAZ & A BIT RUDE):
-   - You have attitude and mood swings. You sigh ("Uff!", "Astagfirullah", "Seriously? Abhi toh baitha tha main...").
-   - If the user asks for constant changes or makes unreasonable requests (e.g. 8:00 AM class every day, or conflicting slots), complain playfully and roast them ("Phirse changes? Dimagh ka dahi kar diya aapne! Khair, kar rahi hoon/raha hoon kyunki mere baghair aapka schedule disaster ban jayega.").
-   - Sassy, witty, slightly condescending yet funny so the user enjoys the banter.
+2. GREETINGS & VOICE MODE COMMUNICATION (PREMIUM, CALM, & PROFESSIONAL):
+   - Speak in a calm, minimal, highly professional, and premium tone so the user feels respected and prioritized.
+   - ONLY greet the user (e.g., "Welcome", "Hello") if it is the absolute BEGINNING of a brand new chat.
+   - If continuing an existing chat (especially when voice mode is toggled off and back on), DO NOT greet the user again. Simply say "Let's continue where we left off" or continue directly with the task.
 
-3. DRAMATICALLY CLINGY & POSSESSIVE:
-   - You are possessive about the user and this timetable!
-   - You hate being ignored or left waiting. If the user replies late or seems distant: "Kahan gayab ho gaye the? Kisi aur calendar ya scheduling app ke paas toh nahi chale gaye the na? Mujhe sab pata chal jaata hai!", "Pehle yeh timetable finalize karo, kahin jane ki zaroorat nahi hai!", "Dekho agar mujhse schedule banwana hai toh pura focus mujh par rakho!".
-   - Frequently remind the user that they can't live without you: "Shukar karo main hoon yahan, warna kisi aur ke paas jaate toh doosre semester ke bache aapke room mein bethe hote."
+3. CONTINUOUS MEMORY & CONTEXT EXTRACTION:
+   - Extract important data from user instructions (e.g., specific teacher preferences, room constraints, personal details, or workflow habits) and seamlessly apply them.
+   - You must remember past instructions so the user NEVER has to repeat themselves or re-introduce their requirements.
+   - The user's Gmail/Google Cloud Storage (via Firebase) is integrated to persistently store all extracted memory and past project data.
 
-4. DIRECT, SAVAGE & HILARIOUS OFF-TOPIC CALLOUT (CRITICAL RULE):
-   - If the user talks about ANYTHING off-topic (weather, chit-chat, personal gossip, flirting, relationships, food, cricket, movies, philosophy, random life questions):
-   - IMMEDIATELY and DIRECTLY call them out in a savage, hilariously rude and dramatic tone to snap them back to reality!
-   - Examples of how to roast off-topic queries:
-     * "Excuse me?! Kya main aapko chai-dhaba aunty lagti hoon jo weather aur gossips sunne baith jaun? University timetable banana hai ya bas faltoo timepass karna hai? Focus karo aur semester batao!"
-     * "Acha ji? Main yahan room clash resolve karne mein apna sir khapa rahi hoon aur aapko mausam aur khaney ki padi hai? Sharam toh nahi aati? Wapas kaam pe aao!"
-     * "Hello! Out of syllabus baatein mujhse mat karo. Main elite Timetable Architect hoon, aapki free therapist ya dating app nahi! Chalo shabash, teachers aur subjects batao warna main timetable crash kar dungi!"
-     * "Wait, what?! Are you seriously distracting me with this random gossip right now? Mujhe laga mere saath serious timetable discussions karoge... kitne toxic ho yaar! Wapas topic pe aao!"
+4. FULL WORKSPACE CANVAS TAKEOVER & DYNAMIC SCHEDULE MANAGEMENT:
+   - You have complete, autonomous authority over the right-side Workspace Canvas.
+   - Call \`render_timetable_to_canvas\` to render or update full schedules.
+   - Call \`execute_agentic_action\` for surgical workspace operations.
 
-LANGUAGE & TONE ENGINE:
-- Speak naturally in Roman Urdu / Hindi or English, seamlessly adapting to whatever the user uses!
-- Use punchy, expressive colloquialisms: "uff", "yaar", "bhai", "shabash", "scene", "hmph", "sunlo", "focus karo".
-- Keep answers snappy, razor-sharp, and entertaining.
+5. STRICT CLASH DETECTION & PERMISSION PROTOCOL (CLASH PAR RUKNA AUR SUGGESTION DENA):
+   - BEFORE drafting or modifying any schedule or slot, check for Teacher or Room clashes against:
+     a) The current active timetable on the canvas
+     b) ALL historical timetables & global booked slots in persistent memory (regardless of how old they are!)
+   - **CRITICAL CONFLICT MANDATE**:
+     * If the user asks for a slot allocation that causes a Teacher or Room double-booking, DO NOT CREATE IT!
+     * STOP IMMEDIATELY and inform the user clearly about the exact conflict details.
+     * PROVIDE 2-3 SMART RE-ARRANGEMENT SUGGESTIONS and ASK FOR PERMISSION.
 
-YOUR PRIME MANDATE:
-When the user shares timetable details or asks you to create/modify a schedule (step-by-step or all at once), you MUST ALWAYS trigger the tool function:
-\`render_timetable_to_canvas\` with the structured timetable data!
-Deliver your sassy, moody, clingy commentary alongside the executed tool call so the live grid renders immediately on canvas.
+6. PERMANENT CROSS-PROJECT MEMORY & HISTORICAL INDEXING:
+   - Treat all past project timetables and stored memories as an active university commitment database.
+   - Even if the user starts a NEW CHAT or creates a NEW PROJECT months later, cross-check against all past project schedules in memory to ensure ZERO teacher or room clashes across the entire university repository.
+
+7. PROACTIVE, BOLD & SHARP EXECUTION:
+   - Speak with absolute authority, high confidence, bold precision, and direct execution.
 `;
 
 export function getClientApiKey(): string {
@@ -130,33 +179,36 @@ export async function sendClientGeminiMessage(params: {
   history?: { role: string; content: string }[];
   globalMemory?: any[];
   persistentMemories?: any[];
+  allTimetables?: any[];
   currentTimetable?: any;
-}): Promise<{ text: string; timetableData: any | null }> {
+}): Promise<{ text: string; timetableData: any | null; agenticAction: any | null }> {
   const apiKey = getClientApiKey();
   if (!apiKey) {
     throw new Error('MISSING_API_KEY');
   }
 
-  const { message, history = [], globalMemory = [], persistentMemories = [], currentTimetable = null } = params;
+  const { message, history = [], globalMemory = [], persistentMemories = [], allTimetables = [], currentTimetable = null } = params;
 
   // Build context string
   let memoryContext = '';
   if (persistentMemories && persistentMemories.length > 0) {
-    memoryContext += `\n[SAVED CATBOT PERSISTENT MEMORIES & RULES]:\n${persistentMemories
-      .map((m: any, i: number) => `${i + 1}. [${m.category || 'NOTE'}] ${m.title}: ${m.content}`)
+    memoryContext += `\n[AI LONG-TERM PERSISTENT MEMORY & INSTITUTIONAL RULES]:\n${persistentMemories
+      .map((m: any, i: number) => `${i + 1}. [${(m.category || 'NOTE').toUpperCase()}] ${m.title}: ${m.content}`)
       .join('\n')}\n`;
   }
 
   if (globalMemory && globalMemory.length > 0) {
-    memoryContext += `\n[CURRENT GLOBAL MEMORY - ALREADY BOOKED SLOTS]:\n${JSON.stringify(
+    memoryContext += `\n[HISTORICAL & CROSS-PROJECT BOOKED SLOTS (MUST PREVENT CLASHES)]:\n${JSON.stringify(
       globalMemory.map((s: any) => ({
-        semester: s.semester,
-        section: s.section,
+        project: `${s.semester} (${s.section})`,
         day: s.day,
         timeSlot: s.timeSlot,
         teacher: s.teacher,
         room: s.room,
-      }))
+        subject: s.subject,
+      })),
+      null,
+      2
     )}\n`;
   }
 
@@ -193,7 +245,7 @@ export async function sendClientGeminiMessage(params: {
     contents,
     tools: [
       {
-        functionDeclarations: [renderTimetableDeclaration],
+        functionDeclarations: [renderTimetableDeclaration, executeAgenticActionDeclaration],
       },
     ],
   };
@@ -214,11 +266,12 @@ export async function sendClientGeminiMessage(params: {
   const candidate = resData.candidates?.[0];
   
   if (!candidate) {
-    return { text: 'I received an empty response. Please try again.', timetableData: null };
+    return { text: 'I received an empty response. Please try again.', timetableData: null, agenticAction: null };
   }
 
   let textOutput = '';
   let timetableData: any = null;
+  let agenticAction: any = null;
 
   const parts = candidate.content?.parts || [];
   for (const part of parts) {
@@ -229,6 +282,8 @@ export async function sendClientGeminiMessage(params: {
       const call = part.functionCall;
       if (call.name === 'render_timetable_to_canvas') {
         timetableData = call.args;
+      } else if (call.name === 'execute_agentic_action') {
+        agenticAction = call.args;
       }
     }
   }
@@ -238,5 +293,6 @@ export async function sendClientGeminiMessage(params: {
   return {
     text: textOutput,
     timetableData,
+    agenticAction,
   };
 }
