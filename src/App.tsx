@@ -15,6 +15,7 @@ import { TimetableData, TimetableSlot, ChatMessage, Conflict } from './types/tim
 import { scanAllConflicts, checkSlotConflict } from './utils/conflictEngine';
 import { voiceService } from './services/voiceService';
 import { memoryService } from './services/memoryService';
+import { sendClientGeminiMessage } from './services/clientGeminiService';
 import { MessageSquare, Layout, Menu, Calendar, ChevronDown, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -293,34 +294,48 @@ export default function App() {
     }
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let assistantText = '';
+      let timetableData: any = null;
+
+      // Try Express backend first
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
+            globalMemory: globalSlots,
+            persistentMemories: memoryService.getAll(),
+            currentTimetable: activeTimetable,
+          }),
+        });
+
+        if (response.ok) {
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await response.json();
+            assistantText = data.text || '';
+            timetableData = data.timetableData || null;
+          } else {
+            throw new Error('Non-JSON response from server');
+          }
+        } else {
+          throw new Error(`Server status ${response.status}`);
+        }
+      } catch (backendErr) {
+        console.info('Express backend unavailable or failed. Switching to Direct Client Gemini Engine:', backendErr);
+        // Fallback to Direct Client-side Gemini API call!
+        const clientRes = await sendClientGeminiMessage({
           message: text,
           history: messages.slice(-6).map((m) => ({ role: m.role, content: m.content })),
           globalMemory: globalSlots,
           persistentMemories: memoryService.getAll(),
           currentTimetable: activeTimetable,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.warn('API error status:', response.status, errorText.slice(0, 150));
-        throw new Error(`Server returned status ${response.status}`);
+        });
+        assistantText = clientRes.text;
+        timetableData = clientRes.timetableData;
       }
-
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        const nonJsonText = await response.text();
-        console.warn('Non-JSON response received:', nonJsonText.slice(0, 150));
-        throw new Error('Non-JSON response received from server');
-      }
-
-      const data = await response.json();
-      const assistantText = data.text || 'I have analyzed your request.';
-      const timetableData = data.timetableData;
 
       let detectedConflicts: Conflict[] = [];
 
@@ -350,7 +365,7 @@ export default function App() {
       const assistantMsg: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: assistantText,
+        content: assistantText || 'I have processed your timetable request.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         timetableData: timetableData || null,
         conflicts: detectedConflicts.length > 0 ? detectedConflicts : undefined,
@@ -358,16 +373,23 @@ export default function App() {
 
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // If requested via voice or user spoke, speak the response naturally with emotional inflection
+      // Speak response if voice was used
       if (isVoice) {
         voiceService.speakText(assistantText);
       }
     } catch (err: any) {
       console.error('Chat error:', err);
+      let errorContent = `I encountered an issue connecting to Gemini AI.`;
+      if (err.message === 'MISSING_API_KEY') {
+        errorContent = `🔑 **Gemini API Key Required**: Please click **Settings (⚙️)** in the sidebar and enter your free Gemini API Key (from \`aistudio.google.com\`) to activate AI timetable generation on this hosted site!`;
+      } else if (err.message) {
+        errorContent += ` Detail: ${err.message}`;
+      }
+
       const errorMsg: ChatMessage = {
         id: `assistant-err-${Date.now()}`,
         role: 'assistant',
-        content: `I encountered a connection issue. If you deployed this application on Vercel or GitHub, please verify that your \`GEMINI_API_KEY\` is added under Vercel Project Settings -> Environment Variables.`,
+        content: errorContent,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);
