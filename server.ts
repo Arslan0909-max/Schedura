@@ -2,14 +2,19 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import dotenv from 'dotenv';
-import { apiApp } from './server/api';
+import { apiRouter } from './server/api';
 import { setupLiveWebSocket } from './server/liveApi';
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
 
-app.use(apiApp);
+// Mount the API router directly at both /api/* and root API paths.
+// This avoids an extra Express application layer interfering with Vercel routing.
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use('/api', apiRouter);
+app.use(apiRouter);
 
 // Health check endpoints
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
@@ -25,8 +30,8 @@ app.get('*', (req, res) => {
 
 const server = http.createServer(app);
 
-// WebSockets are not supported through a normal Vercel serverless function.
-// Keep the Live WebSocket server for local/self-hosted deployments only.
+// Vercel serverless functions do not provide a persistent WebSocket server.
+// Keep the local/self-hosted Live WebSocket implementation outside Vercel.
 if (!process.env.VERCEL) {
   setupLiveWebSocket(server);
 
