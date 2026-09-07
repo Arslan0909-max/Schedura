@@ -78,12 +78,12 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-in fade-in duration-200">
       <div
         id="slot-edit-modal"
-        className="w-full max-w-md bg-white/95 dark:bg-[#18191E]/95 backdrop-blur-2xl border border-zinc-200/80 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-zinc-900 dark:text-zinc-100"
+        className="w-full max-w-md apple-liquid-glass-menu border border-zinc-200/80 dark:border-white/15 rounded-[28px] p-6 shadow-2xl animate-apple-menu text-zinc-900 dark:text-zinc-100"
       >
-        <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-zinc-800 mb-4">
+        <div className="flex items-center justify-between pb-4 border-b border-zinc-100 dark:border-white/10 mb-4">
           <div>
             <h3 className="text-[17px] font-semibold text-zinc-900 dark:text-white">Edit Class Slot</h3>
             <p className="text-[12px] text-zinc-500 dark:text-zinc-400">
@@ -92,7 +92,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/10 apple-stretcher apple-puncher transition-all"
           >
             <X className="w-4.5 h-4.5" />
           </button>
@@ -100,7 +100,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
 
         <form onSubmit={handleSave} className="space-y-4">
           {/* Toggle Break */}
-          <div className="flex items-center justify-between p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/80">
+          <div className="flex items-center justify-between p-3 rounded-2xl apple-liquid-glass-subtle border border-zinc-200/60 dark:border-white/10">
             <div>
               <div className="text-[13px] font-medium text-zinc-900 dark:text-zinc-100">Mark as Break / Recess</div>
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Lunch, prayer, or assembly recess</div>
@@ -108,8 +108,8 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
             <button
               type="button"
               onClick={() => setIsBreak(!isBreak)}
-              className={`w-11 h-6 rounded-full transition-colors relative ${
-                isBreak ? 'bg-black dark:bg-indigo-600' : 'bg-zinc-300 dark:bg-zinc-700'
+              className={`w-11 h-6 rounded-full transition-colors relative apple-stretcher apple-puncher ${
+                isBreak ? 'bg-zinc-900 dark:bg-indigo-600' : 'bg-zinc-300 dark:bg-zinc-700'
               }`}
             >
               <div
@@ -128,7 +128,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
                 value={breakLabel}
                 onChange={(e) => setBreakLabel(e.target.value)}
                 placeholder="e.g. Lunch & Prayer Break"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1F2028] text-zinc-900 dark:text-zinc-100 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/10 focus:border-zinc-400 dark:focus:border-zinc-500"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/10 apple-liquid-glass-input text-zinc-900 dark:text-zinc-100 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10"
               />
             </div>
           ) : (
@@ -142,7 +142,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="e.g. Financial Accounting"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1F2028] text-zinc-900 dark:text-zinc-100 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/10 focus:border-zinc-400 dark:focus:border-zinc-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/10 apple-liquid-glass-input text-zinc-900 dark:text-zinc-100 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10"
                 />
               </div>
 
@@ -156,7 +156,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
                     value={teacher}
                     onChange={(e) => setTeacher(e.target.value)}
                     placeholder="e.g. Dr. Tariq Khan"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1F2028] text-zinc-900 dark:text-zinc-100 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/10 focus:border-zinc-400 dark:focus:border-zinc-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-white/10 apple-liquid-glass-input text-zinc-900 dark:text-zinc-100 text-[13.5px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10"
                   />
                 </div>
 
@@ -165,7 +165,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
                   <select
                     value={room}
                     onChange={(e) => setRoom(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1F2028] text-zinc-900 dark:text-zinc-100 text-[13px] focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/10 focus:border-zinc-400 dark:focus:border-zinc-500"
+                    className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-white/10 apple-liquid-glass-input text-zinc-900 dark:text-zinc-100 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10"
                   >
                     {UNIVERSITY_ROOMS.map((r) => (
                       <option key={r} value={r}>
@@ -185,8 +185,8 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
                       key={c.name}
                       type="button"
                       onClick={() => setColor(c.name)}
-                      className={`w-6 h-6 rounded-full ${c.bg} flex items-center justify-center transition-transform ${
-                        color === c.name ? 'ring-2 ring-offset-2 ring-black dark:ring-white scale-110' : 'hover:scale-105'
+                      className={`w-6 h-6 rounded-full ${c.bg} flex items-center justify-center apple-stretcher apple-puncher transition-all ${
+                        color === c.name ? 'ring-2 ring-offset-2 ring-zinc-900 dark:ring-white scale-110' : 'hover:scale-105'
                       }`}
                     >
                       {color === c.name && <Check className="w-3 h-3 text-white stroke-[3]" />}
@@ -204,7 +204,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
               <select
                 value={day}
                 onChange={(e) => setDay(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1F2028] text-zinc-900 dark:text-zinc-100 text-[13px] focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/10 focus:border-zinc-400 dark:focus:border-zinc-500"
+                className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-white/10 apple-liquid-glass-input text-zinc-900 dark:text-zinc-100 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10"
               >
                 {allDays.map((d) => (
                   <option key={d} value={d}>
@@ -219,7 +219,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
               <select
                 value={timeSlot}
                 onChange={(e) => setTimeSlot(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1F2028] text-zinc-900 dark:text-zinc-100 text-[13px] focus:outline-none focus:ring-2 focus:ring-black/10 dark:focus:ring-white/10 focus:border-zinc-400 dark:focus:border-zinc-500"
+                className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-white/10 apple-liquid-glass-input text-zinc-900 dark:text-zinc-100 text-[13px] focus:outline-none focus:ring-2 focus:ring-zinc-900/10 dark:focus:ring-white/10"
               >
                 {allTimeSlots.map((t) => (
                   <option key={t} value={t}>
@@ -232,7 +232,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
 
           {/* Conflict warnings if any */}
           {currentConflicts.length > 0 && (
-            <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-800 dark:text-rose-200 text-[12px] space-y-1">
+            <div className="p-3 rounded-2xl bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/30 text-rose-800 dark:text-rose-200 text-[12px] space-y-1">
               <div className="flex items-center gap-1.5 font-semibold text-rose-900 dark:text-rose-100">
                 <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
                 <span>Conflict Detected in Global Memory!</span>
@@ -246,7 +246,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
           )}
 
           {/* Buttons */}
-          <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-800">
+          <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-white/10">
             <button
               type="button"
               onClick={() => {
@@ -255,7 +255,7 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
                   onClose();
                 }
               }}
-              className="px-3.5 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[13px] font-medium transition-colors flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[13px] font-medium apple-stretcher apple-puncher transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
               <span>Delete</span>
@@ -265,13 +265,13 @@ export const SlotEditModal: React.FC<SlotEditModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-[13px] font-medium transition-colors"
+                className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-white/10 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5 text-[13px] font-medium apple-stretcher apple-puncher transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-black hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-black text-[13px] font-medium transition-transform active:scale-95 shadow-sm"
+                className="px-5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-[13px] font-medium apple-stretcher apple-puncher transition-all cursor-pointer shadow-sm"
               >
                 Save Changes
               </button>

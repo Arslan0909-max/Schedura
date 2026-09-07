@@ -17,8 +17,9 @@ export async function sendClientGeminiMessage(params: {
   persistentMemories?: any[];
   allTimetables?: any[];
   currentTimetable?: any;
+  attachments?: any[];
 }): Promise<{ text: string; timetableData: any | null; agenticAction: any | null }> {
-  const { message, history = [], globalMemory = [], persistentMemories = [], allTimetables = [], currentTimetable = null } = params;
+  const { message, history = [], globalMemory = [], persistentMemories = [], allTimetables = [], currentTimetable = null, attachments = [] } = params;
 
   try {
     const response = await fetch('/api/chat', {
@@ -33,6 +34,7 @@ export async function sendClientGeminiMessage(params: {
         persistentMemories: persistentMemories.length > 0 ? persistentMemories : memoryService.getAll(),
         allTimetables,
         currentTimetable,
+        attachments,
       }),
     });
 

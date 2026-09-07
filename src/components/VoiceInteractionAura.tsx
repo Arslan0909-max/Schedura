@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Mic, Volume2, Loader2, Zap } from 'lucide-react';
+import { Mic, Volume2, Loader2, Radio, Activity } from 'lucide-react';
 
 export type VoiceAuraState = 'opening' | 'listening' | 'thinking' | 'speaking' | 'idle';
 
@@ -26,7 +26,7 @@ export const VoiceInteractionAura: React.FC<VoiceInteractionAuraProps> = ({
   showLabel = true,
   className = '',
 }) => {
-  // Determine current active AI Voice state
+  // Determine current active Voice state
   const state: VoiceAuraState =
     stateOverride ||
     (isOpeningAnim
@@ -43,38 +43,38 @@ export const VoiceInteractionAura: React.FC<VoiceInteractionAuraProps> = ({
   const stateConfig = {
     opening: {
       auraClass: 'animate-opening-aura',
-      badgeBg: 'bg-purple-500/15 dark:bg-purple-500/20 border-purple-500/40 text-purple-700 dark:text-purple-300 shadow-[0_0_24px_rgba(168,85,247,0.45)]',
-      glowGradient: 'from-purple-500/30 via-pink-500/20 to-indigo-500/30',
-      icon: <Zap className="w-3.5 h-3.5 text-purple-500 animate-bounce" />,
-      label: 'Activating Schedura AI...',
+      badgeBg: 'bg-indigo-500/15 dark:bg-indigo-500/20 border-indigo-500/40 text-indigo-700 dark:text-indigo-300 shadow-[0_0_24px_rgba(99,102,241,0.45)]',
+      glowGradient: 'from-indigo-500/30 via-purple-500/20 to-blue-500/30',
+      icon: <Radio className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />,
+      label: 'Connecting Voice...',
     },
     listening: {
       auraClass: 'animate-listening-aura',
       badgeBg: 'bg-emerald-500/15 dark:bg-emerald-500/20 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.45)]',
       glowGradient: 'from-emerald-500/30 via-teal-500/20 to-cyan-500/30',
       icon: <Mic className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />,
-      label: 'Listening for Speech...',
+      label: 'Listening...',
     },
     thinking: {
       auraClass: 'animate-thinking-orbit',
-      badgeBg: 'bg-fuchsia-500/15 dark:bg-fuchsia-500/20 border-fuchsia-500/40 text-fuchsia-700 dark:text-fuchsia-300 shadow-[0_0_28px_rgba(217,70,239,0.5)]',
-      glowGradient: 'from-violet-500/30 via-fuchsia-500/25 to-amber-500/30',
-      icon: <Loader2 className="w-3.5 h-3.5 text-fuchsia-500 animate-spin" />,
-      label: 'Architecting Schedule...',
+      badgeBg: 'bg-indigo-500/15 dark:bg-indigo-500/20 border-indigo-500/40 text-indigo-700 dark:text-indigo-300 shadow-[0_0_28px_rgba(99,102,241,0.5)]',
+      glowGradient: 'from-indigo-500/30 via-blue-500/25 to-purple-500/30',
+      icon: <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin" />,
+      label: 'Processing Schedule...',
     },
     speaking: {
       auraClass: 'animate-speaking-aura',
       badgeBg: 'bg-indigo-500/15 dark:bg-indigo-500/20 border-indigo-500/40 text-indigo-700 dark:text-indigo-300 shadow-[0_0_28px_rgba(99,102,241,0.5)]',
       glowGradient: 'from-indigo-500/30 via-violet-500/25 to-pink-500/30',
       icon: <Volume2 className="w-3.5 h-3.5 text-indigo-500 animate-pulse" />,
-      label: 'Speaking Response...',
+      label: 'Speaking...',
     },
     idle: {
       auraClass: '',
-      badgeBg: 'bg-zinc-100/80 dark:bg-zinc-800/80 border-zinc-200/60 dark:border-zinc-700/60 text-zinc-700 dark:text-zinc-200',
+      badgeBg: 'apple-liquid-glass-subtle border border-zinc-200/60 dark:border-white/10 text-zinc-700 dark:text-zinc-200',
       glowGradient: 'from-transparent to-transparent',
-      icon: <Sparkles className="w-3.5 h-3.5 text-emerald-500" />,
-      label: 'Schedura Voice Ready',
+      icon: <Activity className="w-3.5 h-3.5 text-emerald-500" />,
+      label: 'Voice Ready',
     },
   }[state];
 
@@ -97,7 +97,7 @@ export const VoiceInteractionAura: React.FC<VoiceInteractionAuraProps> = ({
 
       {/* Main Glass Badge */}
       <div
-        className={`relative flex items-center gap-1.5 rounded-full border font-medium transition-all duration-500 ${sizeClasses} ${stateConfig.badgeBg}`}
+        className={`relative flex items-center gap-1.5 rounded-full border font-medium transition-all duration-500 backdrop-blur-2xl ${sizeClasses} ${stateConfig.badgeBg}`}
       >
         {stateConfig.icon}
         {showLabel && <span className="font-semibold tracking-tight">{stateConfig.label}</span>}

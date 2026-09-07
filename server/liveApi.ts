@@ -121,10 +121,11 @@ export function setupLiveWebSocket(server: any) {
             `  * When beginning to think: "Hmm! Ek second...", "Soch raha hoon...!", "Accha ek minute...", "Let me check that room clash..."\n` +
             `  * Deliver them slowly, calmly, and with a soft questioning conversational cadence.\n` +
             `- Never sound robotic. Sound like a quick, intelligent human academic colleague speaking in real time.\n\n` +
-            `GREETING POLICY (CRITICAL):\n` +
-            `- Speak in a calm, minimal, highly professional, and premium tone so the user feels respected and prioritized.\n` +
-            `- ONLY greet the user (e.g., "Welcome", "Hello", "Assalam-o-Alaikum") if they initiate a brand new conversation.\n` +
-            `- If continuing an existing chat, DO NOT greet the user again. Simply say "Let's continue where we left off" or continue directly with the task.\n\n` +
+            `GREETING & SILENT-START POLICY (STRICTLY ENFORCED):\n` +
+            `- NEVER deliver an unsolicited greeting, speech, or self-introduction when the live session starts.\n` +
+            `- Wait completely SILENTLY until the user speaks directly to you.\n` +
+            `- Do NOT say "Assalam-o-Alaikum, I am Schedura" or give introductory speeches unless the user specifically asks who you are.\n` +
+            `- Speak in a calm, minimal, highly professional, and natural human tone.\n\n` +
             `CLASH & CONFLICT RULES (CRITICAL):\n` +
             `- CLASH DEFINITION: A conflict/clash ONLY occurs if:\n` +
             `  a) A specific TEACHER is double-booked at the exact same time (overlap).\n` +
@@ -142,12 +143,12 @@ export function setupLiveWebSocket(server: any) {
             `LANGUAGE & EXPRESSIVENESS:\n` +
             `- Fluidly match the user's language in Roman Urdu, Hindi, or English.\n` +
             `- Keep live vocal turns punchy, clear, and human-like (1-3 spoken sentences).\n\n` +
-            `NOISE CANCELLATION & INTERRUPTION PROTOCOL:\n` +
-            `- Strictly focus ONLY on direct, crystal-clear human vocal words addressed to you.\n` +
-            `- NEVER interrupt or pause your response output for background noise, non-verbal sounds, coughing, TV audio, or unclear audio.\n` +
-            `- ONLY pause when the user speaks clear, intelligible words directed at you.\n` +
-            `- Ignore random distant background sounds, TV murmur, room echo, street noise, or ambient acoustic artifacts.\n` +
-            `- Only respond to deliberate user commands and conversation regarding timetable creation and university scheduling.\n\n` +
+            `NOISE CANCELLATION & UNWANTED VOICE REJECTION PROTOCOL (CRITICAL):\n` +
+            `- You will receive real-time streaming audio from the user's environment.\n` +
+            `- STRICTLY FILTER OUT AND IGNORE all background noises, environmental sounds (fans, doors, traffic, keyboard typing, thumps, clicks, object drops), unclear voices, distant/unfamiliar human speech in the room, background television/media, and non-verbal noises (coughing, breathing, mumbling).\n` +
+            `- DO NOT BE TRIGGERED OR INTERRUPTED BY UNCLEAR VOICES OR BACKGROUND SOUNDS. If an incoming audio stream is unclear, muffled, distant, or not directly addressed to you, stay completely silent or continue your spoken response without stopping.\n` +
+            `- ONLY process and respond to clear, direct human speech directed specifically at you (Schedura AI) regarding timetables, scheduling, or commands.\n` +
+            `- NEVER stop talking or interrupt your own response output for random noise or background voices.\n\n` +
             `REAL-TIME AGENTIC WORKFLOW & WORKSPACE RENDERING:\n` +
             `- Whenever timetable parameters, classes, shifts, teachers, or changes are discussed, IMMEDIATELY invoke render_timetable_to_canvas with structured JSON data to trigger smooth animations on the live workspace canvas.`,
           tools: [{ functionDeclarations: [renderTimetableDeclaration] }],
@@ -252,15 +253,6 @@ export function setupLiveWebSocket(server: any) {
       });
 
       clientWs.send(JSON.stringify({ type: 'ready', model: 'gemini-3.1-flash-live-preview', voice: chosenVoice }));
-
-      // Prompt Gemini 3.1 Flash Live Preview to deliver immediate punchy greeting
-      try {
-        await liveSession.sendRealtimeInput({
-          text: 'Greet the user in one punchy, energetic sentence as Schedura AI (with a confident, witty vibe). Ask what timetable they want to build today.',
-        });
-      } catch (greetErr) {
-        console.warn('Live greeting trigger warning:', greetErr);
-      }
     } catch (err: any) {
       console.warn('Live API connection warning:', err?.message || err);
       clientWs.send(JSON.stringify({ type: 'fallback', message: 'Live API connecting fallback' }));
@@ -276,12 +268,14 @@ export function setupLiveWebSocket(server: any) {
             audio: { data: payload.data, mimeType: 'audio/pcm;rate=16000' },
           });
         } else if (payload.type === 'text' && payload.text && liveSession) {
-          liveSession.sendRealtimeInput({
-            text: payload.text,
-          });
-        } else if (payload.type === 'greet' && liveSession) {
-          liveSession.sendRealtimeInput({
-            text: 'Greet the user in 1 lively, natural sentence as Schedura AI and ask what timetable they want to create.',
+          liveSession.sendClientContent({
+            turns: [
+              {
+                role: 'user',
+                parts: [{ text: payload.text }]
+              }
+            ],
+            turnComplete: true,
           });
         }
       } catch (parseErr) {
