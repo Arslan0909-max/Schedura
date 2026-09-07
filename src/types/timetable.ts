@@ -38,16 +38,6 @@ export interface Conflict {
   suggestedResolution: string;
 }
 
-export interface AttachmentFile {
-  id: string;
-  name: string;
-  size: number;
-  type: 'image' | 'spreadsheet' | 'pdf' | 'document' | 'text';
-  mimeType: string;
-  dataUrl?: string;
-  extractedText?: string;
-}
-
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -58,7 +48,6 @@ export interface ChatMessage {
   conflicts?: Conflict[];
   isVoice?: boolean;
   audioUrl?: string;
-  attachments?: AttachmentFile[];
 }
 
 export interface UniversityTemplate {

@@ -59,6 +59,7 @@ class VoiceService {
   private onAncCb: NoiseCancellationCallback | null = null;
   private onTimetableRenderCb: LiveTimetableCallback | null = null;
   private waveformInterval: any = null;
+  private chromeKeepAliveTimer: any = null;
 
   // Audio Contexts & Analysers for Live API
   private inputAudioCtx: AudioContext | null = null;
@@ -97,12 +98,7 @@ class VoiceService {
 
   // Cache
   private audioCache = new Map<string, AudioBuffer>();
-
-  // Ultra-Low Latency Turn-Taking & Silence Detection
-  private silenceTimer: any = null;
-  private lastSpokenText: string = '';
-  private lastCommittedText: string = '';
-  private consecutiveSilentVadFrames = 0;
+  private cachedVoices: SpeechSynthesisVoice[] = [];
 
   constructor() {
     this.initVoices();
@@ -128,27 +124,11 @@ class VoiceService {
   }
 
   private initVoices() {
-    if (typeof window === 'undefined') return;
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch {
-        // ignore
-      }
-    }
-  }
-
-  public commitTranscript(text: string) {
-    const trimmed = (text || '').trim();
-    if (!trimmed || trimmed === this.lastCommittedText || trimmed.length < 2) return;
-    this.lastCommittedText = trimmed;
-    this.lastSpokenText = '';
-    if (this.silenceTimer) {
-      clearTimeout(this.silenceTimer);
-      this.silenceTimer = null;
-    }
-    this.onStatusCb?.('fetching');
-    this.onTranscriptCb?.(trimmed, true);
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    this.cachedVoices = window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => {
+      this.cachedVoices = window.speechSynthesis.getVoices();
+    };
   }
 
   private initRecognition() {
@@ -174,54 +154,53 @@ class VoiceService {
           }
         }
 
-        const text = (finalTranscript || interimTranscript).trim();
-        if (!text) return;
+        const text = finalTranscript || interimTranscript;
+        if (text && this.onTranscriptCb) {
+          // Crystal-Clear Intelligible Speech Interruption Check:
+          // ONLY pause audio output if actual intelligible user words (>= 2 words or explicit command word) are recognized.
+          // Never interrupt on raw background noise, non-verbal sounds, or unclear audio.
+          const words = text.trim().split(/\s+/).filter((w) => w.length > 1);
+          const hasExplicitCommand = words.some((w) =>
+            ['stop', 'wait', 'hold', 'pause', 'schedura', 'ruk', 'roko', 'suno', 'bhai', 'listen', 'chup'].includes(w.toLowerCase())
+          );
 
-        // Reset silence timer on every new speech chunk
-        if (this.silenceTimer) {
-          clearTimeout(this.silenceTimer);
-          this.silenceTimer = null;
-        }
-
-        this.lastSpokenText = text;
-
-        // Crystal-Clear Intelligible Speech Interruption Check:
-        const words = text.trim().split(/\s+/).filter((w) => w.length > 1);
-        const hasExplicitCommand = words.some((w) =>
-          ['stop', 'wait', 'hold', 'pause', 'schedura', 'ruk', 'roko', 'suno', 'bhai', 'listen', 'chup'].includes(w.toLowerCase())
-        );
-
-        if (
-          (words.length >= 2 || hasExplicitCommand) &&
-          (this.scheduledAudioSources.length > 0 ||
-            (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking))
-        ) {
-          console.log('[VoiceService] Intelligible user speech recognized during output. Pausing response:', text);
-          this.stopSpeaking();
-          if (this.liveWs && this.liveWs.readyState === WebSocket.OPEN) {
-            this.liveWs.send(JSON.stringify({ type: 'interrupted' }));
-          }
-        }
-
-        // Live real-time transcript streaming to UI
-        this.onTranscriptCb?.(text, false);
-
-        // 1. If native SpeechRecognition produced a final transcript, commit immediately!
-        if (finalTranscript && finalTranscript.trim().length > 1) {
-          this.commitTranscript(finalTranscript.trim());
-          return;
-        }
-
-        // 2. ULTRA-FAST TURN-TAKING (480ms silence detector):
-        // Never wait 3-4 seconds for the browser's sluggish isFinal!
-        // As soon as the user pauses for ~480ms after a spoken sentence, commit the turn immediately!
-        if (this.lastSpokenText.length > 1) {
-          this.silenceTimer = setTimeout(() => {
-            if (this.lastSpokenText && this.lastSpokenText !== this.lastCommittedText) {
-              console.log('[VoiceService] Fast silence detected (480ms). Committing speech turn:', this.lastSpokenText);
-              this.commitTranscript(this.lastSpokenText);
+          if ((words.length >= 2 || hasExplicitCommand) && this.scheduledAudioSources.length > 0) {
+            console.log('[VoiceService] Intelligible user speech recognized during output. Pausing response:', text);
+            this.stopScheduledAudio();
+            if (this.liveWs && this.liveWs.readyState === WebSocket.OPEN) {
+              this.liveWs.send(JSON.stringify({ type: 'interrupted' }));
             }
-          }, 480);
+
+            // Speak immediate natural human partner acknowledgement filler word
+            const isUrduHindi = /[a-z]/i.test(text) && (
+              text.toLowerCase().includes('karo') ||
+              text.toLowerCase().includes('hai') ||
+              text.toLowerCase().includes('sun') ||
+              text.toLowerCase().includes('bhai') ||
+              text.toLowerCase().includes('roko') ||
+              text.toLowerCase().includes('baat') ||
+              text.toLowerCase().includes('nahi')
+            );
+
+            const interruptionFillers = isUrduHindi
+              ? [
+                  "Aha, yeah, main sun raha hoon, batayein!",
+                  "Aha, sun raha hoon, please go ahead!",
+                  "Ji bilkul, main sun raha hoon, aage batayein.",
+                  "Right, main sun raha hoon, boliye!",
+                ]
+              : [
+                  "Aha, I am listening to you, please go ahead.",
+                  "Yeah, I hear you, go right ahead!",
+                  "Right, I am listening, please go on.",
+                  "Aha, yeah, go ahead, I'm with you!",
+                ];
+
+            const selectedFiller = interruptionFillers[Math.floor(Math.random() * interruptionFillers.length)];
+            this.speakText(selectedFiller);
+          }
+
+          this.onTranscriptCb(text, !!finalTranscript);
         }
       };
 
@@ -500,27 +479,16 @@ class VoiceService {
           estimatedNoiseFloor = estimatedNoiseFloor * 0.95 + rms * 0.05;
         }
 
-        // Voice Detection based on both RMS energy and Vocal Frequency Spectrum Dominance
-        // Require near-field primary user speech (higher SNR, speech energy & purity) to reject distant voices/animal noises/TV/objects
-        const isVoiceFrequencyDominant = voiceEnergyAvg > 24 && voiceEnergyAvg > noiseEnergyAvg * 1.8 && voicePurity > 45;
-        const speechThreshold = Math.max(0.028, estimatedNoiseFloor * 3.2);
+      // Voice Detection based on both RMS energy and Vocal Frequency Spectrum Dominance
+        // Require near-field primary user speech (higher SNR & speech energy) to reject distant voices/animal noises/TV/objects
+        const isVoiceFrequencyDominant = voiceEnergyAvg > 16 && voiceEnergyAvg > noiseEnergyAvg * 1.5;
+        const speechThreshold = Math.max(0.015, estimatedNoiseFloor * 2.5);
         const isVoiceActive = rms > speechThreshold && isVoiceFrequencyDominant;
 
         if (isVoiceActive) {
           speechHoldCounter = HOLD_FRAMES;
-          this.consecutiveSilentVadFrames = 0;
         } else if (speechHoldCounter > 0) {
           speechHoldCounter--;
-        } else {
-          this.consecutiveSilentVadFrames++;
-        }
-
-        // Acoustic turn-taking: If user was speaking, has finished speaking, and silence has persisted for 6 frames (~380ms)
-        if (this.consecutiveSilentVadFrames >= 6 && this.lastSpokenText && this.lastSpokenText !== this.lastCommittedText) {
-          const wordCount = this.lastSpokenText.trim().split(/\s+/).length;
-          if (wordCount >= 2 || this.lastSpokenText.length > 5) {
-            this.commitTranscript(this.lastSpokenText);
-          }
         }
 
         const isUserSpeaking = isVoiceActive || speechHoldCounter > 0;
@@ -575,14 +543,18 @@ class VoiceService {
         // Background noise, loud sounds, non-verbal audio, or unclear noise are strictly ignored.
         // Interruption is handled EXCLUSIVELY via recognized crystal-clear user speech transcripts.
 
-        // Stream Normalized Clean Voice to Gemini Live WebSocket ONLY when genuine user speech is active
+        // Stream Normalized Clean Voice to Gemini Live WebSocket
         if (this.liveWs && this.liveWs.readyState === WebSocket.OPEN) {
           if (isUserSpeaking) {
             // User is actively speaking: send AGC-normalized high-clarity PCM
             const base64 = floatTo16BitPCM(normalizedBuffer);
             this.liveWs.send(JSON.stringify({ type: 'audio', data: base64 }));
+          } else {
+            // Background is idle / ambient noise: send silence/zero frame to prevent hallucination or ambient pickup
+            const silenceData = new Float32Array(inputData.length);
+            const base64 = floatTo16BitPCM(silenceData);
+            this.liveWs.send(JSON.stringify({ type: 'audio', data: base64 }));
           }
-          // When user is silent/not speaking: do NOT send audio packets to prevent flooding Gemini server VAD
         }
       };
 
@@ -835,7 +807,7 @@ class VoiceService {
     return { pitch: 1.04, rate: 1.02, volume: 1.0, tone: 'friendly' };
   }
 
-  // Speak text with zero-latency speech engine and emotional inflection
+  // Speak text with Google AI Voice Model with zero-latency audio pipeline
   public async speakText(text: string, onEnd?: () => void) {
     this.stopSpeaking();
     this.prepareAudioContext();
@@ -860,10 +832,10 @@ class VoiceService {
       return;
     }
 
-    // Exclusively call Google Gemini 3.1 Flash TTS Preview Model via /api/tts
+    // Call Gemini 3.1 Flash TTS Model exclusively (Zero-Latency 24kHz PCM pipeline)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
       const res = await fetch('/api/tts', {
         method: 'POST',
@@ -887,32 +859,29 @@ class VoiceService {
         }
       }
     } catch (e) {
-      console.info('Gemini 3.1 Flash TTS processing note:', e);
+      console.info('Gemini 3.1 Flash TTS preview error:', e);
     }
 
-    // Strictly Gemini 3.1 Flash TTS only - NO secondary robotic speech synthesis
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch {
-        // ignore
-      }
-    }
+    // Gemini 3.1 Live TTS preview is strictly used for voice generation
     this.stopWaveformAnimation();
-    this.onStatusCb?.(this.isListening ? 'listening' : 'idle');
+    this.onStatusCb?.('idle');
     onEnd?.();
   }
 
+  private clearKeepAlive() {
+    if (this.chromeKeepAliveTimer) {
+      clearInterval(this.chromeKeepAliveTimer);
+      this.chromeKeepAliveTimer = null;
+    }
+  }
+
   public stopSpeaking() {
+    this.clearKeepAlive();
     this.stopWaveformAnimation();
     this.stopScheduledAudio();
 
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch {
-        // ignore
-      }
+      window.speechSynthesis.cancel();
     }
 
     this.onStatusCb?.('idle');
@@ -1038,12 +1007,100 @@ class VoiceService {
     }
   }
 
+  private wakeWordRecognition: any = null;
+  private isWakeWordActive = false;
+
+  // Hands-free Wake Word Listener ("Hey Schedura", "Schedura", "Hi Schedura", "Hey Schedule")
   public startWakeWordListener(onTrigger: () => void) {
-    // Disabled
+    if (typeof window === 'undefined') return;
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    this.stopWakeWordListener();
+    try {
+      this.wakeWordRecognition = new SpeechRec();
+      this.wakeWordRecognition.continuous = true;
+      this.wakeWordRecognition.interimResults = true;
+      this.wakeWordRecognition.maxAlternatives = 3;
+      this.wakeWordRecognition.lang = 'en-US';
+
+      this.isWakeWordActive = true;
+
+      this.wakeWordRecognition.onresult = (e: any) => {
+        if (!this.isWakeWordActive || this.isListening) return;
+
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const res = e.results[i];
+          for (let j = 0; j < res.length; j++) {
+            const phrase = (res[j].transcript || '').toLowerCase().trim();
+            if (
+              phrase.includes('schedura') ||
+              phrase.includes('schadura') ||
+              phrase.includes('skedura') ||
+              phrase.includes('sedura') ||
+              phrase.includes('schedule') ||
+              phrase.includes('shadura') ||
+              phrase.includes('schedera') ||
+              phrase.includes('schedular') ||
+              phrase.includes('hey schedura') ||
+              phrase.includes('hi schedura') ||
+              phrase.includes('hello schedura') ||
+              phrase.includes('hey schedule') ||
+              phrase.includes('listen schedura') ||
+              phrase.includes('ok schedura') ||
+              phrase.includes('ae schedura') ||
+              phrase.includes('haey schedura') ||
+              phrase.includes('hey shadura')
+            ) {
+              this.playWakeChime();
+              this.stopWakeWordListener();
+              onTrigger();
+              return;
+            }
+          }
+        }
+      };
+
+      this.wakeWordRecognition.onerror = () => {
+        if (this.isWakeWordActive && !this.isListening) {
+          setTimeout(() => {
+            if (this.isWakeWordActive && !this.isListening && !this.wakeWordRecognition) {
+              this.startWakeWordListener(onTrigger);
+            }
+          }, 300);
+        }
+      };
+
+      this.wakeWordRecognition.onend = () => {
+        if (this.isWakeWordActive && !this.isListening) {
+          setTimeout(() => {
+            if (this.isWakeWordActive && !this.isListening) {
+              try {
+                this.wakeWordRecognition?.start();
+              } catch {
+                this.startWakeWordListener(onTrigger);
+              }
+            }
+          }, 200);
+        }
+      };
+
+      this.wakeWordRecognition.start();
+    } catch {
+      this.isWakeWordActive = false;
+    }
   }
 
   public stopWakeWordListener() {
-    // Disabled
+    this.isWakeWordActive = false;
+    if (this.wakeWordRecognition) {
+      try {
+        this.wakeWordRecognition.stop();
+      } catch {
+        // ignore
+      }
+      this.wakeWordRecognition = null;
+    }
   }
 }
 

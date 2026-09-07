@@ -2,8 +2,8 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import dotenv from 'dotenv';
-import { apiApp } from './server/api';
-import { setupLiveWebSocket } from './server/liveApi';
+import { apiApp } from './server/api.ts';
+import { setupLiveWebSocket } from './server/liveApi.ts';
 
 dotenv.config();
 
@@ -25,13 +25,8 @@ app.get('*', (req, res) => {
 });
 
 const server = http.createServer(app);
+setupLiveWebSocket(server);
 
-if (!process.env.VERCEL) {
-  setupLiveWebSocket(server);
-  server.listen(Number(PORT), '0.0.0.0', () => {
-    console.log(`Schedura server running on port ${PORT}`);
-  });
-}
-
-export default app;
-
+server.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`Schedura server with Gemini 3.1 Flash Live running on port ${PORT}`);
+});

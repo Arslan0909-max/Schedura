@@ -12,7 +12,7 @@ import { HistoryModal } from './components/HistoryModal';
 import { SettingsModal } from './components/SettingsModal';
 import { MemoryModal } from './components/MemoryModal';
 import { AuthModal } from './components/AuthModal';
-import { TimetableData, TimetableSlot, ChatMessage, Conflict, AttachmentFile } from './types/timetable';
+import { TimetableData, TimetableSlot, ChatMessage, Conflict } from './types/timetable';
 import { scanAllConflicts, checkSlotConflict } from './utils/conflictEngine';
 import { voiceService } from './services/voiceService';
 import { memoryService } from './services/memoryService';
@@ -426,7 +426,7 @@ export default function App() {
   }, [handleRenderToCanvas]);
 
   // Send message to Schedura AI
-  const handleSendMessage = async (text: string, isVoice = false, attachments?: AttachmentFile[]) => {
+  const handleSendMessage = async (text: string, isVoice = false) => {
     const userMsgId = `user-${Date.now()}`;
     const userMsg: ChatMessage = {
       id: userMsgId,
@@ -434,7 +434,6 @@ export default function App() {
       content: text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isVoice,
-      attachments,
     };
 
     // Auto learn persistent memories from conversational patterns
@@ -445,10 +444,6 @@ export default function App() {
     setMemoryCount(memoryService.getAll().length);
 
     setMessages((prev) => [...prev, userMsg]);
-    setIsLoading(true);
-    if (isVoice) {
-      setIsVoiceProcessing(true);
-    }
 
     // Instant In-App Agentic UI Command Processor
     const lowerText = text.toLowerCase().trim();
@@ -604,19 +599,53 @@ export default function App() {
       let assistantText = '';
       let timetableData: any = null;
 
-      const clientRes = await sendClientGeminiMessage({
-        message: text,
-        history: messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
-        globalMemory: globalSlots,
-        persistentMemories: memoryService.getAll(),
-        allTimetables: allTimetables,
-        currentTimetable: activeTimetable,
-        attachments,
-      });
-      assistantText = clientRes.text;
-      timetableData = clientRes.timetableData;
-      if (clientRes.agenticAction) {
-        processAgenticAction(clientRes.agenticAction);
+      // Try Express backend first
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            history: messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
+            globalMemory: globalSlots,
+            persistentMemories: memoryService.getAll(),
+            allTimetables: allTimetables,
+            currentTimetable: activeTimetable,
+          }),
+        });
+
+        if (response.ok) {
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await response.json();
+            assistantText = data.text || '';
+            timetableData = data.timetableData || null;
+
+            if (data.agenticAction) {
+              processAgenticAction(data.agenticAction);
+            }
+          } else {
+            throw new Error('Non-JSON response from server');
+          }
+        } else {
+          throw new Error(`Server status ${response.status}`);
+        }
+      } catch (backendErr) {
+        console.info('Express backend unavailable or failed. Switching to Direct Client Gemini Engine:', backendErr);
+        // Fallback to Direct Client-side Gemini API call!
+        const clientRes = await sendClientGeminiMessage({
+          message: text,
+          history: messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
+          globalMemory: globalSlots,
+          persistentMemories: memoryService.getAll(),
+          allTimetables: allTimetables,
+          currentTimetable: activeTimetable,
+        });
+        assistantText = clientRes.text;
+        timetableData = clientRes.timetableData;
+        if (clientRes.agenticAction) {
+          processAgenticAction(clientRes.agenticAction);
+        }
       }
 
       let detectedConflicts: Conflict[] = [];
@@ -661,7 +690,12 @@ export default function App() {
       }
     } catch (err: any) {
       console.error('Chat error:', err);
-      const errorContent = `I encountered an issue processing your request. Detail: ${err?.message || 'Server connection issue'}`;
+      let errorContent = `I encountered an issue connecting to Gemini AI.`;
+      if (err.message === 'MISSING_API_KEY') {
+        errorContent = `🔑 **Gemini API Key Required**: Please click **Settings (⚙️)** in the sidebar and enter your free Gemini API Key (from \`aistudio.google.com\`) to activate AI timetable generation on this hosted site!`;
+      } else if (err.message) {
+        errorContent += ` Detail: ${err.message}`;
+      }
 
       const errorMsg: ChatMessage = {
         id: `assistant-err-${Date.now()}`,
@@ -730,23 +764,26 @@ export default function App() {
       )}
 
       {/* MOBILE TOP BAR (Visible only on < md screens) */}
-      <div className="md:hidden flex items-center justify-between px-3.5 py-2.5 apple-liquid-glass-subtle border-b border-zinc-200/80 dark:border-white/10 z-30 shrink-0 select-none shadow-xs backdrop-blur-2xl">
+      <div className="md:hidden flex items-center justify-between px-3.5 py-2.5 liquid-glass-subtle border-b border-zinc-200/80 dark:border-zinc-800 z-30 shrink-0 select-none shadow-2xs">
         {/* Left: Mobile Sidebar Drawer Button & Logo */}
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setIsMobileSidebarOpen(true)}
-            className="w-8.5 h-8.5 rounded-xl bg-zinc-100/90 dark:bg-zinc-800 hover:bg-zinc-200/90 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-200 apple-stretcher apple-puncher transition-all"
+            className="w-8.5 h-8.5 rounded-xl bg-zinc-100/90 dark:bg-zinc-800 hover:bg-zinc-200/90 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-700 dark:text-zinc-200 punch-tap transition-all"
             title="Open Menu"
           >
             <Menu className="w-4.5 h-4.5" />
           </button>
 
           <div className="flex items-center gap-1.5">
-            <div className="w-6.5 h-6.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center shadow-xs">
+            <div className="w-6.5 h-6.5 rounded-lg bg-black dark:bg-white text-white dark:text-black flex items-center justify-center shadow-2xs">
               <Calendar className="w-3.5 h-3.5" />
             </div>
             <span className="font-semibold text-[15px] text-zinc-900 dark:text-white tracking-tight">Schedura</span>
+            <span className="px-1 py-0.2 text-[9.5px] font-medium bg-zinc-200/70 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded border border-zinc-200/80 dark:border-zinc-700">
+              AI
+            </span>
           </div>
         </div>
 
@@ -755,21 +792,21 @@ export default function App() {
           <button
             type="button"
             onClick={toggleDarkMode}
-            className="w-8 h-8 rounded-xl bg-zinc-100/90 dark:bg-zinc-800 border border-zinc-200/60 dark:border-white/10 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white apple-stretcher apple-puncher transition-all"
+            className="w-8 h-8 rounded-xl bg-zinc-100/90 dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white punch-tap transition-all"
             title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             aria-label="Toggle theme"
           >
             {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-zinc-600" />}
           </button>
 
-          <div className="flex items-center gap-1 bg-zinc-200/70 dark:bg-zinc-800/80 p-0.5 rounded-xl border border-zinc-200/80 dark:border-white/10">
+          <div className="flex items-center gap-1 bg-zinc-200/70 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/80 dark:border-zinc-700">
             <button
               type="button"
               onClick={() => {
                 setMobileLayoutMode('chat');
                 scrollToMobileChat();
               }}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium apple-stretcher apple-puncher transition-all flex items-center gap-1 ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium punch-tap transition-all flex items-center gap-1 ${
                 mobileLayoutMode === 'chat'
                   ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-xs font-semibold'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
@@ -785,7 +822,7 @@ export default function App() {
                 setMobileLayoutMode('workspace');
                 scrollToMobileWorkspace();
               }}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium apple-stretcher apple-puncher transition-all flex items-center gap-1 ${
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium punch-tap transition-all flex items-center gap-1 ${
                 mobileLayoutMode === 'workspace'
                   ? 'bg-zinc-900 dark:bg-zinc-700 text-white shadow-xs font-semibold'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
@@ -803,7 +840,7 @@ export default function App() {
               onClick={() => {
                 setMobileLayoutMode('stacked');
               }}
-              className={`px-2 py-1 rounded-lg text-[11px] font-medium apple-stretcher apple-puncher transition-all ${
+              className={`px-2 py-1 rounded-lg text-[11px] font-medium punch-tap transition-all ${
                 mobileLayoutMode === 'stacked'
                   ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-xs font-semibold'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
@@ -854,7 +891,7 @@ export default function App() {
           >
             {/* Scroll Down Indicator Header (Visible only in stacked mode) */}
             {mobileLayoutMode === 'stacked' && (
-              <div className="px-4 py-2.5 apple-liquid-glass-subtle border-b border-zinc-200/70 dark:border-white/10 flex items-center justify-between backdrop-blur-2xl">
+              <div className="px-4 py-2.5 liquid-glass-subtle border-b border-zinc-200/70 dark:border-zinc-800 flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-[12px] font-semibold text-zinc-800 dark:text-zinc-200">
                   <Layout className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
                   <span>Timetable WorkSpace Canvas</span>

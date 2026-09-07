@@ -1,7 +1,6 @@
 import { GoogleGenAI, Type, Modality } from '@google/genai';
 import type { FunctionDeclaration } from '@google/genai';
-import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 
 export const apiRouter = express.Router();
 export const apiApp = express();
@@ -243,45 +242,12 @@ apiRouter.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'schedura-api' });
 });
 
-apiRouter.post(['/chat', '/api/chat'], async (req, res) => {
+apiRouter.post('/chat', async (req, res) => {
   try {
-    const { message, history = [], globalMemory = [], persistentMemories = [], allTimetables = [], currentTimetable = null, attachments = [] } = req.body;
+    const { message, history = [], globalMemory = [], persistentMemories = [], allTimetables = [], currentTimetable = null } = req.body;
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ error: 'Message string is required' });
-    }
-
-    const cleanMsg = message.trim().toLowerCase();
-
-    // 1. Instant greetings (Urdu, Roman Urdu, English, Islamic) - Sub-millisecond response!
-    const isGreeting =
-      /^(hi|hello|hey|salam|salaam|assalam|assalamu|aoa|adaab|good\s+morning|good\s+afternoon|good\s+evening|kya\s+haal|kaise\s+ho|how\s+are\s+you|namaste)(\s+.*)?$/i.test(cleanMsg) &&
-      !cleanMsg.includes('bana') &&
-      !cleanMsg.includes('schedule') &&
-      !cleanMsg.includes('timetable') &&
-      !cleanMsg.includes('slot') &&
-      !cleanMsg.includes('bscs') &&
-      !cleanMsg.includes('bba') &&
-      !cleanMsg.includes('teacher') &&
-      !cleanMsg.includes('subject');
-
-    // 2. Instant short conversational acknowledgments ("theek hai", "ok", "haan", "shukriya", "thanks", "done", "zabardast", "good")
-    const isQuickAck =
-      /^(theek\s+hai|theek|ok|okay|acha|accha|haan|ha|han|yes|yep|shukriya|thanks|thank\s+you|done|zabardast|behtareen|good|great|nice|bilkul|sahi|thk)(\s+.*)?$/i.test(cleanMsg) &&
-      cleanMsg.split(/\s+/).length <= 4 &&
-      !cleanMsg.includes('bana') &&
-      !cleanMsg.includes('schedule') &&
-      !cleanMsg.includes('timetable') &&
-      !cleanMsg.includes('slot');
-
-    if (isGreeting || isQuickAck) {
-      const quickReply = generateSmartFallback(message, history, globalMemory, currentTimetable, 0);
-      return res.json({
-        text: quickReply.text,
-        timetableData: quickReply.timetableData || null,
-        agenticAction: null,
-        isInstant: true,
-      });
     }
 
     const ai = getAIClient();
@@ -297,16 +263,6 @@ apiRouter.post(['/chat', '/api/chat'], async (req, res) => {
     
     // Add context about global memory & catbot persistent memories
     let memoryContext = '';
-
-    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
-      memoryContext += `\n[ATTACHED USER MEDIA & DOCUMENTS (PICTURES, EXCEL, PDFS, NOTES)]:\n`;
-      for (const att of attachments) {
-        memoryContext += `File: ${att.name} | Type: ${att.type} | Size: ${Math.round((att.size || 0) / 1024)} KB\n`;
-        if (att.extractedText) {
-          memoryContext += `Extracted File Data / Content:\n${att.extractedText}\n-----------------------------------\n`;
-        }
-      }
-    }
     if (persistentMemories && persistentMemories.length > 0) {
       memoryContext += `\n[SAVED PERSISTENT INSTITUTIONAL MEMORIES & RULES]:\n${persistentMemories
         .map((m: any, i: number) => `${i + 1}. [${m.category || 'NOTE'}] ${m.title}: ${m.content}`)
@@ -351,143 +307,62 @@ apiRouter.post(['/chat', '/api/chat'], async (req, res) => {
       memoryContext += `\n[CURRENT ACTIVE TIMETABLE ON CANVAS]:\n${JSON.stringify(currentTimetable, null, 2)}\n`;
     }
 
-    let inputString = "";
-    if (memoryContext) {
-      inputString += `${memoryContext}\n`;
-    }
-    if (history && history.length > 0) {
-      inputString += `\n[RECENT CONVERSATION HISTORY]:\n`;
-      for (const h of history.slice(-8)) {
-        inputString += `${h.role === 'user' ? 'User' : 'Schedura AI'}: ${h.content}\n`;
-      }
-      inputString += `\n`;
-    }
-    inputString += `User Request: ${message}`;
-
-    const interactionsTools: any[] = [
-      {
-        type: "function",
-        name: renderTimetableDeclaration.name,
-        description: renderTimetableDeclaration.description,
-        parameters: renderTimetableDeclaration.parameters,
-      },
-      {
-        type: "function",
-        name: executeAgenticActionDeclaration.name,
-        description: executeAgenticActionDeclaration.description,
-        parameters: executeAgenticActionDeclaration.parameters,
-      }
-    ];
-
-    let assistantText = "";
-    let canvasTriggerData: any = null;
-    let agenticActionData: any = null;
-
-    // PRIMARY PIPELINE: High-speed gemini-3.6-flash generateContent with function calling
-    try {
-      const contents: any[] = [];
-      if (history && Array.isArray(history)) {
-        for (const h of history.slice(-10)) {
-          if (h && h.content) {
-            contents.push({
-              role: h.role === 'user' ? 'user' : 'model',
-              parts: [{ text: h.content }],
-            });
-          }
-        }
-      }
-
-      let promptWithContext = '';
-      if (memoryContext) {
-        promptWithContext += `${memoryContext}\n\n`;
-      }
-      promptWithContext += `User Request: ${message}`;
-
+    for (const h of history.slice(-8)) {
       contents.push({
-        role: 'user',
-        parts: [{ text: promptWithContext }],
+        role: h.role === 'user' ? 'user' : 'model',
+        parts: [{ text: h.content }],
       });
+    }
 
-      // Primary generation with gemini-3.8-flash (exclusively specified by user)
-      const generatePromise = ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents,
-        config: {
-          systemInstruction: SYSTEM_PROMPT,
-          maxOutputTokens: 2048,
-          tools: [
-            {
-              functionDeclarations: [
-                renderTimetableDeclaration,
-                executeAgenticActionDeclaration,
-              ],
-            },
-          ],
-        },
-      });
+    contents.push({
+      role: 'user',
+      parts: [{ text: `${memoryContext}\nUser Request: ${message}` }],
+    });
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Generation timeout (8s reached) - applying smart instant response')), 8000)
-      );
+    let response: any = null;
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-pro', 'gemini-1.5-pro'];
+    let lastError: any = null;
 
-      const genResponse: any = await Promise.race([generatePromise, timeoutPromise]);
-
-      if (genResponse) {
-        if (genResponse.text) {
-          assistantText = genResponse.text;
-        }
-        if (genResponse.functionCalls && genResponse.functionCalls.length > 0) {
-          for (const call of genResponse.functionCalls) {
-            if (call.name === 'render_timetable_to_canvas') {
-              canvasTriggerData = normalizeAndEnrichTimetable(call.args, message, globalMemory);
-            } else if (call.name === 'execute_agentic_action') {
-              agenticActionData = call.args;
-              if (call.args && (call.args as any).shortResponseText && !assistantText) {
-                assistantText = (call.args as any).shortResponseText;
-              }
-            }
-          }
-        }
-        if (!assistantText && genResponse.candidates?.[0]?.content?.parts) {
-          for (const part of genResponse.candidates[0].content.parts) {
-            if (part.text) assistantText += part.text;
-          }
-        }
-      }
-    } catch (primaryErr: any) {
-      console.warn('Primary generateContent with gemini-3.8-flash error, trying interactions fallback:', primaryErr?.message || primaryErr);
+    for (const modelName of modelsToTry) {
       try {
-        const interaction = await ai.interactions.create({
-          model: 'gemini-3.8-flash',
-          input: inputString,
-          system_instruction: SYSTEM_PROMPT,
-          tools: interactionsTools,
+        response = await ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: {
+            systemInstruction: SYSTEM_PROMPT,
+            temperature: 0.7,
+            tools: [{ functionDeclarations: [renderTimetableDeclaration, executeAgenticActionDeclaration] }],
+          },
         });
+        if (response) {
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Model ${modelName} returned error:`, err?.message || err);
+      }
+    }
 
-        if (interaction?.steps) {
-          for (const step of interaction.steps) {
-            if (step.type === 'model_output') {
-              const textContent = step.content?.find((c: any) => c.type === 'text');
-              if (textContent && (textContent as any).text) {
-                assistantText += (textContent as any).text;
-              }
-            } else if (step.type === 'function_call') {
-              if (step.name === 'render_timetable_to_canvas') {
-                canvasTriggerData = normalizeAndEnrichTimetable(step.arguments, message, globalMemory);
-              } else if (step.name === 'execute_agentic_action') {
-                agenticActionData = step.arguments;
-                if (step.arguments?.shortResponseText && !assistantText) {
-                  assistantText = step.arguments.shortResponseText;
-                }
-              }
-            }
+    if (!response) {
+      throw lastError || new Error('All Gemini model attempts unavailable');
+    }
+
+    let assistantText = response.text || '';
+    let canvasTriggerData = null;
+    let agenticActionData = null;
+
+    // Check for function calls
+    const functionCalls = response.functionCalls;
+    if (functionCalls && functionCalls.length > 0) {
+      for (const fc of functionCalls) {
+        if (fc.name === 'render_timetable_to_canvas') {
+          canvasTriggerData = normalizeAndEnrichTimetable(fc.args, message, globalMemory);
+        } else if (fc.name === 'execute_agentic_action') {
+          agenticActionData = fc.args;
+          if (fc.args.shortResponseText && !assistantText) {
+            assistantText = fc.args.shortResponseText;
           }
         }
-        if (!assistantText && interaction?.output_text) {
-          assistantText = interaction.output_text;
-        }
-      } catch (secondaryErr: any) {
-        console.warn('Interactions fallback error:', secondaryErr?.message || secondaryErr);
       }
     }
 
@@ -561,7 +436,7 @@ function isScheduleIntent(message: string): boolean {
 }
 
 // POST /api/tts - High-fidelity Gemini 3.1 Flash TTS Model with zero-latency streaming & emotional inflection
-apiRouter.post(['/tts', '/api/tts'], async (req, res) => {
+apiRouter.post('/tts', async (req, res) => {
   try {
     const { text, voiceName = 'Aoede', emotion = 'auto', language = 'auto' } = req.body;
     if (!text) {
@@ -881,68 +756,21 @@ function generateSmartFallback(
 ) {
   const lower = (message || '').toLowerCase().trim();
 
-  // 0. Greeting detection (Urdu, Roman Urdu, English, Islamic greetings)
-  const isGreeting =
-    /^(hi|hello|hey|salam|salaam|assalam|assalamu|aoa|adaab|good\s+morning|good\s+afternoon|good\s+evening|kya\s+haal|kaise\s+ho|how\s+are\s+you|namaste)/i.test(lower) ||
-    lower === 'greeting' ||
-    lower === 'hello' ||
-    lower === 'hi' ||
-    lower === 'salam' ||
-    lower === 'assalam o alaikum' ||
-    lower === 'assalam-o-alaikum';
-
-  if (isGreeting) {
-    return {
-      text: `Walaikum Assalam! Main **Schedura AI** hoon — aapka University Timetable Architect & Academic Assistant. 🎓\n\nMain aapki classes, room allocation, faculty scheduling aur conflict-free timetable generate karne ke liye bilkul tayar hoon.\n\nAap kis department ya semester (jaise **BSCS 3rd Semester**, **BBA Morning**, **SE**, waghera) ka timetable create ya manage karna chahte hain?`,
-      timetableData: null,
-      emotion: 'friendly',
-      offTopicStreak: 0,
-    };
-  }
-
-  // Keyword scans
-  const hasSemesterKeyword = lower.includes('bscs') || lower.includes('bba') || lower.includes('semester') || lower.includes('department') || lower.includes('bsse') || lower.includes('bsit') || lower.includes('bs ');
-  const hasTeacherKeyword = lower.includes('sir') || lower.includes('dr.') || lower.includes('prof') || lower.includes('teacher') || lower.includes('faculty') || lower.includes('tariq') || lower.includes('kamran') || lower.includes('ayesha');
-  const hasSubjectKeyword = lower.includes('subject') || lower.includes('course') || lower.includes('dsa') || lower.includes('database') || lower.includes('accounting') || lower.includes('programming') || lower.includes('math');
-
-  // 1. Follow-up after greeting / Help / Guidance detection
-  const isHelpOrGuide =
-    lower.includes('help') ||
-    lower.includes('guide') ||
-    lower.includes('kya kar sakte') ||
-    lower.includes('kaise shuru') ||
-    lower.includes('start') ||
-    lower.includes('shuru') ||
-    lower.includes('theek hai') ||
-    lower.includes('okay') ||
-    lower.includes('ok') ||
-    lower.includes('haan') ||
-    lower.includes('yes') ||
-    lower.includes('batao') ||
-    lower.includes('tell me') ||
-    lower.includes('kaise kaam') ||
-    lower.includes('kaise banega');
-
-  if (isHelpOrGuide && !isScheduleIntent(message) && !hasSemesterKeyword && !hasTeacherKeyword && !hasSubjectKeyword) {
-    return {
-      text: `Zabardast! Schedura ke zariye aap kisi bhi university ya college ka **100% Conflict-Free Timetable** chand seconds mein bana sakte hain.\n\nShuru karne ke liye sirf yeh 3 cheezein batayein:\n1. 🏫 **Department & Semester**: (e.g. *BSCS 3rd Semester*, *BBA 5th*)\n2. ⏰ **Shift**: (*Morning* ya *Evening*)\n3. 👨‍🏫 **Faculty & Subjects**: (Agar koi specific teachers ya courses hain, ya main university curriculum ke mutabiq automatically populate kar doon?)\n\nAap batayein, baqi timetable grid main live canvas par render kar dunga!`,
-      timetableData: null,
-      emotion: 'helpful',
-      offTopicStreak: 0,
-    };
-  }
-
-  // 2. Check for off-topic categories & respond sweetly and calmly
+  // 1. Check for off-topic categories & respond sweetly and calmly
   const isWeather = lower.includes('weather') || lower.includes('mausam') || lower.includes('barish') || lower.includes('rain') || lower.includes('garmi');
   const isFood = lower.includes('khana') || lower.includes('food') || lower.includes('chai') || lower.includes('biryani') || lower.includes('pizza');
   const isPersonalOrFlirt = lower.includes('love') || lower.includes('pyaar') || lower.includes('single') || lower.includes('shaadi') || lower.includes('date') || lower.includes('cute') || lower.includes('khoobsurat');
   const isCricketSports = lower.includes('cricket') || lower.includes('match') || lower.includes('score') || lower.includes('babar') || lower.includes('kohli') || lower.includes('football');
   const isRandomChitchat = lower.includes('joke') || lower.includes('latifa') || lower.includes('kya kar rahi') || lower.includes('kya kar rahe') || lower.includes('tell me a story');
 
+  const hasSemesterKeyword = lower.includes('bscs') || lower.includes('bba') || lower.includes('semester') || lower.includes('department') || lower.includes('bsse') || lower.includes('bsit') || lower.includes('bs ');
+  const hasTeacherKeyword = lower.includes('sir') || lower.includes('dr.') || lower.includes('prof') || lower.includes('teacher') || lower.includes('faculty') || lower.includes('tariq') || lower.includes('kamran') || lower.includes('ayesha');
+  const hasSubjectKeyword = lower.includes('subject') || lower.includes('course') || lower.includes('dsa') || lower.includes('database') || lower.includes('accounting') || lower.includes('programming') || lower.includes('math');
+
   // Handle general knowledge or academic inquiries intelligently
   if (!isScheduleIntent(message) && !hasSemesterKeyword && !hasTeacherKeyword && !hasSubjectKeyword) {
     return {
-      text: `Main **Schedura AI** hoon, aapka hyper-intelligent University Timetable Architect. Regarding **"${message}"**: Main aapki classes, schedules, CS concepts, academic queries, aur institutional planning mein mukammal madad kar sakta hoon. Aap kis semester ya task par kaam karna chahte hain?`,
+      text: `I am **Schedura AI**, your hyper-intelligent AI Assistant and Timetable Architect. Regarding **"${message}"**: I can analyze, explain, solve, or code any query across STEM, CS, literature, history, or academic scheduling. How else can I assist you or execute your next command?`,
       timetableData: null,
       emotion: 'confident',
       offTopicStreak: 0,

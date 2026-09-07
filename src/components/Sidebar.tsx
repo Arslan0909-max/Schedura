@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside
         id="schedura-sidebar"
         style={{ width: isCollapsed ? 64 : `${width}px` }}
-        className={`apple-liquid-glass-subtle border-r border-zinc-200/60 dark:border-white/10 flex flex-col justify-between select-none shrink-0 transition-all duration-300 overflow-hidden relative backdrop-blur-3xl ${
+        className={`liquid-glass-subtle border-r border-zinc-200/70 dark:border-zinc-800 flex flex-col justify-between select-none shrink-0 transition-all duration-200 overflow-hidden relative ${
           isMobileOpen
             ? 'fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] shadow-2xl animate-in slide-in-from-left duration-250 flex'
             : 'hidden md:flex h-full'
@@ -82,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             {(!isCollapsed || isMobileOpen) && (
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center shadow-sm shrink-0 apple-puncher">
+                <div className="w-8 h-8 rounded-xl bg-black dark:bg-zinc-800 flex items-center justify-center text-white shadow-sm shadow-black/20 shrink-0 punch-tap">
                   <Calendar className="w-4.5 h-4.5" />
                 </div>
                 <div className="flex items-center gap-1.5 overflow-hidden">
@@ -90,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     Schedura
                   </span>
                   <span className="px-1.5 py-0.5 text-[10px] font-medium bg-zinc-200/70 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-md border border-zinc-200/80 dark:border-zinc-700 shrink-0">
-                    Pro
+                    AI
                   </span>
                 </div>
               </div>
@@ -101,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 type="button"
                 onClick={onCloseMobile}
-                className="w-8 h-8 rounded-xl flex md:hidden items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 apple-puncher transition-all shrink-0 cursor-pointer"
+                className="w-8 h-8 rounded-xl flex md:hidden items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 punch-tap transition-all shrink-0 cursor-pointer"
                 title="Close Sidebar"
               >
                 <X className="w-4.5 h-4.5 text-zinc-700 dark:text-zinc-300" />
@@ -112,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 type="button"
                 id="btn-toggle-sidebar"
                 onClick={onToggleCollapse}
-                className="w-8 h-8 rounded-xl hidden md:flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 apple-puncher transition-all shrink-0 cursor-pointer"
+                className="w-8 h-8 rounded-xl hidden md:flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 punch-tap transition-all shrink-0 cursor-pointer"
                 title={isCollapsed ? 'Expand Sidebar (Ctrl+\\)' : 'Collapse Sidebar to free workspace'}
               >
                 {isCollapsed ? (
@@ -135,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               className={`w-full flex items-center ${
                 isCollapsed && !isMobileOpen ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
-              } rounded-xl text-[14px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/70 apple-stretcher apple-puncher group cursor-pointer`}
+              } rounded-xl text-[14px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800/70 punch-tap transition-all group cursor-pointer`}
               title="Start New Chat & Timetable"
             >
               <SquarePen className="w-4.5 h-4.5 text-zinc-600 dark:text-zinc-400 shrink-0 group-hover:text-zinc-900 dark:group-hover:text-zinc-100" />
@@ -153,9 +153,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 isCollapsed && !isMobileOpen
                   ? 'justify-center p-2.5 relative'
                   : 'justify-between px-3 py-2.5'
-              } rounded-xl text-[14px] font-medium apple-stretcher apple-puncher cursor-pointer ${
+              } rounded-xl text-[14px] font-medium punch-tap transition-all cursor-pointer ${
                 activeTab === 'history'
-                  ? 'apple-liquid-glass text-zinc-900 dark:text-zinc-100 font-semibold shadow-xs'
+                  ? 'bg-zinc-200/90 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold shadow-xs'
                   : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60'
               }`}
               title="Timetable History"
@@ -187,9 +187,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }}
               className={`w-full flex items-center ${
                 isCollapsed && !isMobileOpen ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5'
-              } rounded-xl text-[14px] font-medium apple-stretcher apple-puncher cursor-pointer ${
+              } rounded-xl text-[14px] font-medium punch-tap transition-all cursor-pointer ${
                 activeTab === 'templates'
-                  ? 'apple-liquid-glass text-zinc-900 dark:text-zinc-100 font-semibold shadow-xs'
+                  ? 'bg-zinc-200/90 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold shadow-xs'
                   : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60'
               }`}
               title="Department Templates"
@@ -211,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   isCollapsed && !isMobileOpen
                     ? 'justify-center p-2.5'
                     : 'justify-start gap-3 px-3 py-2.5'
-                } rounded-xl text-[14px] font-medium apple-stretcher apple-puncher text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 cursor-pointer group`}
+                } rounded-xl text-[14px] font-medium punch-tap transition-all text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 cursor-pointer group`}
                 title="AI Long-Term Memory & Rules"
               >
                 <Brain className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:scale-110 transition-transform" />
@@ -227,7 +227,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={onToggleDarkMode}
                 className={`w-full flex items-center ${
                   isCollapsed && !isMobileOpen ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'
-                } rounded-xl text-[14px] font-medium apple-stretcher apple-puncher text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 cursor-pointer group`}
+                } rounded-xl text-[14px] font-medium punch-tap transition-all text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/60 dark:hover:bg-zinc-800/60 cursor-pointer group`}
                 title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
                 <div

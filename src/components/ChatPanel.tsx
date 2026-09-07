@@ -18,22 +18,23 @@ import {
   Radio,
   Check,
   Brain,
-  Paperclip,
-  X,
-  FileText,
-  Image,
+  ThumbsUp,
+  ThumbsDown,
+  LogIn,
   FileSpreadsheet,
+  HardDrive,
 } from 'lucide-react';
-import { ChatMessage, TimetableData, AttachmentFile } from '../types/timetable';
+import { ChatMessage, TimetableData } from '../types/timetable';
 import { voiceService, GoogleVoiceName, NoiseCancellationInfo } from '../services/voiceService';
 import { VoiceInteractionAura } from './VoiceInteractionAura';
-import { processUploadedFile } from '../utils/fileParser';
+import { learningEngine } from '../services/learningEngine';
+import { signInWithGoogleWorkspace } from '../services/googleWorkspace';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
   isLoading: boolean;
   isVoiceProcessing?: boolean;
-  onSendMessage: (text: string, isVoice?: boolean, attachments?: AttachmentFile[]) => void;
+  onSendMessage: (text: string, isVoice?: boolean) => void;
   onRenderToCanvas: (data: Partial<TimetableData>) => void;
   activeTimetable: TimetableData | null;
   onOpenMemoryModal?: () => void;
@@ -64,43 +65,38 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   });
   const [liveTranscript, setLiveTranscript] = useState<string>('');
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [feedbackRatings, setFeedbackRatings] = useState<Record<string, 'up' | 'down'>>({});
+  const [authCardSuccess, setAuthCardSuccess] = useState<string | null>(null);
   const [showHelperMenu, setShowHelperMenu] = useState(false);
   const [showAssistantDropdown, setShowAssistantDropdown] = useState(false);
   const [assistantMode, setAssistantMode] = useState<'Standard' | 'Strict Clash Prevention' | 'Speed Schedule'>('Standard');
   const [selectedVoice, setSelectedVoice] = useState<GoogleVoiceName>(voiceService.getVoice());
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
+  const [isWakeWordEnabled, setIsWakeWordEnabled] = useState(true);
   const [isOpeningAnim, setIsOpeningAnim] = useState(false);
-  const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const files: File[] = Array.from(e.target.files);
-    const processed: AttachmentFile[] = [];
-    for (const f of files) {
-      try {
-        const att = await processUploadedFile(f);
-        processed.push(att);
-      } catch (err) {
-        console.warn('Failed to process uploaded file:', err);
-      }
-    }
-    setAttachments((prev) => [...prev, ...processed]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleRemoveAttachment = (id: string) => {
-    setAttachments((prev) => prev.filter((a) => a.id !== id));
-  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading, isVoiceProcessing]);
+
+  // Hands-free "Hey Schedura" Wake Word Listener effect
+  useEffect(() => {
+    if (isWakeWordEnabled && !isVoiceActive) {
+      voiceService.startWakeWordListener(() => {
+        if (!isVoiceActive) {
+          toggleVoiceMode();
+        }
+      });
+    } else {
+      voiceService.stopWakeWordListener();
+    }
+    return () => {
+      voiceService.stopWakeWordListener();
+    };
+  }, [isWakeWordEnabled, isVoiceActive]);
 
   // Connect waveform listener & ANC status listener from voiceService
   useEffect(() => {
@@ -143,6 +139,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             setIsVoiceActive(false);
             setVoiceStatus('idle');
             setLiveTranscript('');
+            voiceService.speakText("Disabling Live Voice mode as requested.");
             return;
           }
 
@@ -160,7 +157,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           }
         }
       );
-      if (!started) {
+      if (started) {
+        // Warm & Sweet Live Greeting
+        const greetingText = "Assalam-o-Alaikum! Main Schedura hoon. Aaj hum kis department ya semester ka timetable schedule karenge?";
+        voiceService.speakText(greetingText);
+      } else {
         setIsVoiceActive(false);
         setVoiceStatus('idle');
         setLiveTranscript('');
@@ -182,37 +183,35 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if ((!inputText.trim() && attachments.length === 0) || isLoading) return;
-    const text = inputText.trim() || (attachments.length > 0 ? 'Uploaded media and documents for timetable analysis.' : '');
-    const currentAttachments = [...attachments];
+    if (!inputText.trim() || isLoading) return;
+    const text = inputText.trim();
     setInputText('');
-    setAttachments([]);
-    onSendMessage(text, false, currentAttachments);
+    onSendMessage(text);
   };
 
   return (
     <section
       id="schedura-chat-panel"
-      className="w-full h-full apple-liquid-glass border-r border-zinc-200/60 dark:border-white/10 flex flex-col justify-between relative overflow-hidden transition-all duration-300 shadow-[0_8px_32px_rgba(0,0,0,0.03)]"
+      className="w-full h-full liquid-glass border-r border-zinc-200/60 dark:border-zinc-800 flex flex-col justify-between relative overflow-hidden transition-all duration-200 shadow-[0_8px_32px_rgba(0,0,0,0.03)]"
     >
-      {/* Header matching Apple translucent liquid glass design */}
-      <header className="h-14 border-b border-zinc-200/60 dark:border-white/10 px-4 sm:px-5 flex items-center justify-between apple-liquid-glass-subtle shrink-0 z-10 backdrop-blur-2xl">
+      {/* Header matching Apple translucent design */}
+      <header className="h-14 border-b border-zinc-200/60 dark:border-zinc-800 px-4 sm:px-5 flex items-center justify-between liquid-glass-subtle shrink-0 z-10">
         <div className="relative">
           <button
             id="ai-assistant-dropdown"
             onClick={() => setShowAssistantDropdown(!showAssistantDropdown)}
-            className="flex items-center gap-2 text-[15px] font-semibold text-zinc-900 dark:text-zinc-100 hover:text-zinc-600 dark:hover:text-zinc-300 apple-stretcher apple-puncher transition-all px-2 py-1 rounded-xl"
+            className="flex items-center gap-1.5 text-[15px] font-semibold text-zinc-900 dark:text-zinc-100 hover:text-zinc-600 dark:hover:text-zinc-300 punch-tap transition-all"
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ring-2 ring-emerald-400/30" />
-            <span className="tracking-tight">Timetable Assistant</span>
-            <ChevronDown className="w-4 h-4 text-zinc-400 transition-transform duration-200" />
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>AI Assistant</span>
+            <ChevronDown className="w-4 h-4 text-zinc-400 transition-transform duration-150" />
           </button>
 
           {showAssistantDropdown && (
-            <div className="absolute top-11 left-0 w-72 p-2 apple-liquid-glass-menu rounded-2xl z-50 text-[13px] animate-apple-menu origin-top-left shadow-2xl">
+            <div className="absolute top-11 left-0 w-72 p-2 liquid-glass-menu rounded-2xl z-50 text-[13px] animate-apple-menu origin-top-left">
               {/* Section 1: Assistant Mode */}
               <div className="px-3 py-1 text-[11px] font-semibold text-zinc-400 dark:text-zinc-400 uppercase tracking-wider">
-                Mode
+                Assistant Mode
               </div>
               <div className="space-y-0.5 mb-2">
                 {(['Standard', 'Strict Clash Prevention', 'Speed Schedule'] as const).map((mode) => (
@@ -221,7 +220,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                     onClick={() => {
                       setAssistantMode(mode);
                     }}
-                    className={`w-full text-left px-3 py-1.5 rounded-xl flex items-center justify-between apple-stretcher apple-puncher transition-all ${
+                    className={`w-full text-left px-3 py-1.5 rounded-xl flex items-center justify-between punch-tap transition-all ${
                       assistantMode === mode
                         ? 'bg-zinc-900 dark:bg-white font-semibold text-white dark:text-zinc-900 shadow-xs'
                         : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80'
@@ -262,7 +261,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                       setSelectedVoice(v.id as GoogleVoiceName);
                       voiceService.setVoice(v.id as GoogleVoiceName);
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl apple-stretcher apple-puncher transition-all ${
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-xl punch-tap transition-all ${
                       selectedVoice === v.id
                         ? 'bg-zinc-900 dark:bg-indigo-600 text-white font-medium shadow-xs'
                         : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
@@ -331,37 +330,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             >
               {msg.role === 'user' ? (
                 /* User Message */
-                <div className="max-w-[88%] sm:max-w-[82%] md:max-w-[78%] space-y-1.5 flex flex-col items-end">
-                  {msg.attachments && msg.attachments.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 justify-end">
-                      {msg.attachments.map((att) => (
-                        <div
-                          key={att.id}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-zinc-800 dark:bg-indigo-700/80 text-white text-[11px] border border-zinc-700/60 shadow-xs max-w-xs"
-                        >
-                          {att.type === 'image' && att.dataUrl ? (
-                            <img src={att.dataUrl} alt={att.name} className="w-5 h-5 object-cover rounded" />
-                          ) : att.type === 'spreadsheet' ? (
-                            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                          ) : att.type === 'pdf' ? (
-                            <FileText className="w-4 h-4 text-rose-400" />
-                          ) : (
-                            <Paperclip className="w-4 h-4 text-indigo-300" />
-                          )}
-                          <span className="truncate max-w-[130px] font-medium">{att.name}</span>
-                          <span className="text-[9.5px] opacity-70">({Math.round(att.size / 1024)} KB)</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="px-4 py-2.5 rounded-[20px] rounded-br-[4px] bg-blue-600 text-white text-[13.5px] leading-relaxed shadow-[0_4px_16px_rgba(37,99,235,0.25)] apple-stretcher apple-puncher break-words">
-                    {msg.content}
-                  </div>
+                <div className="max-w-[88%] sm:max-w-[82%] md:max-w-[78%] px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl rounded-br-sm bg-zinc-900 dark:bg-indigo-600 text-white text-[13px] sm:text-[13.5px] leading-relaxed shadow-sm punch-tap break-words">
+                  {msg.content}
                 </div>
               ) : (
                 /* Assistant Message */
                 <div className="max-w-[94%] sm:max-w-[90%] md:max-w-[86%] space-y-2">
-                  <div className="p-4 sm:p-4.5 rounded-[22px] rounded-tl-[6px] apple-liquid-glass-card shadow-sm text-[13.5px] text-zinc-800 dark:text-zinc-200 leading-relaxed relative group break-words">
+                  <div className="p-3.5 sm:p-4 rounded-2xl rounded-tl-sm liquid-glass-card shadow-xs text-[13px] sm:text-[13.5px] text-zinc-800 dark:text-zinc-200 leading-relaxed relative group break-words">
                     {/* Message Content with bold parsing */}
                     <div className="whitespace-pre-line">
                       {msg.content.split('\n').map((line, lIdx) => {
@@ -384,59 +359,154 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                       })}
                     </div>
 
-                    {/* Quick TTS button */}
-                    <div className="mt-2.5 pt-2 border-t border-zinc-200/60 dark:border-white/10 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500">
-                      <span className="text-zinc-500 dark:text-zinc-400 font-medium">
-                        Schedura Assistant
+                    {/* Quick TTS & RL Self-Improvement Feedback Buttons */}
+                    <div className="mt-2.5 pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500">
+                      <span className="text-zinc-500 dark:text-zinc-400 font-medium flex items-center gap-1">
+                        <span>Schedura Partner</span>
+                        {feedbackRatings[msg.id] && (
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold px-1.5 py-0.2 rounded bg-emerald-50 dark:bg-emerald-950/60">
+                            Learned!
+                          </span>
+                        )}
                       </span>
-                      <button
-                        onClick={() => handleSpeak(msg.id, msg.content)}
-                        className={`relative flex items-center gap-1.5 transition-all px-2.5 py-1 rounded-full apple-stretcher apple-puncher ${
-                          speakingMessageId === msg.id
-                            ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 font-medium border border-rose-200 dark:border-rose-800/60'
-                            : 'hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100/80 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
-                        }`}
-                        title="Voice read response"
-                      >
-                        {speakingMessageId === msg.id && (
-                          <span
-                            className="absolute -inset-0.5 rounded-md border border-rose-400/40 pointer-events-none transition-transform duration-100 ease-out"
-                            style={{
-                              transform: `scale(${1 + waveformLevel * 0.25})`,
-                            }}
-                          />
-                        )}
-                        {speakingMessageId === msg.id ? (
-                          <>
-                            <VolumeX className="w-3.5 h-3.5 text-rose-500" />
-                            <span className="text-rose-500 font-medium">Stop</span>
-                            <div className="flex items-center gap-0.5 h-2.5 ml-0.5">
-                              <span
-                                className="w-0.5 bg-rose-500 rounded-full transition-all duration-75"
-                                style={{ height: `${Math.max(2, Math.min(8, Math.round(waveformLevel * 10)))}px` }}
-                              />
-                              <span
-                                className="w-0.5 bg-rose-500 rounded-full transition-all duration-75"
-                                style={{ height: `${Math.max(3, Math.min(10, Math.round(waveformLevel * 12)))}px` }}
-                              />
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <Volume2 className="w-3.5 h-3.5" />
-                            <span>Listen</span>
-                          </>
-                        )}
-                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        {/* RL Thumbs Up */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFeedbackRatings((prev) => ({ ...prev, [msg.id]: 'up' }));
+                            learningEngine.recordFeedback({
+                              type: 'thumbs_up',
+                              aiResponse: msg.content,
+                              rewardScore: 1.0,
+                              contextTags: ['user_positive'],
+                            });
+                          }}
+                          className={`p-1 rounded-md transition-colors ${
+                            feedbackRatings[msg.id] === 'up'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 font-bold'
+                              : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                          }`}
+                          title="Rate response as helpful (Self-Improvement RL)"
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* RL Thumbs Down */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFeedbackRatings((prev) => ({ ...prev, [msg.id]: 'down' }));
+                            learningEngine.recordFeedback({
+                              type: 'thumbs_down',
+                              aiResponse: msg.content,
+                              rewardScore: -1.0,
+                              contextTags: ['user_negative'],
+                            });
+                          }}
+                          className={`p-1 rounded-md transition-colors ${
+                            feedbackRatings[msg.id] === 'down'
+                              ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 font-bold'
+                              : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                          }`}
+                          title="Rate response as needing improvement (Self-Improvement RL)"
+                        >
+                          <ThumbsDown className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Quick TTS button */}
+                        <button
+                          onClick={() => handleSpeak(msg.id, msg.content)}
+                          className={`relative flex items-center gap-1.5 transition-all px-2 py-0.5 rounded-md punch-tap ${
+                            speakingMessageId === msg.id
+                              ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 font-medium border border-rose-200 dark:border-rose-800/60'
+                              : 'hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100/80 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
+                          }`}
+                          title="Voice read response"
+                        >
+                          {speakingMessageId === msg.id && (
+                            <span
+                              className="absolute -inset-0.5 rounded-md border border-rose-400/40 pointer-events-none transition-transform duration-100 ease-out"
+                              style={{
+                                transform: `scale(${1 + waveformLevel * 0.25})`,
+                              }}
+                            />
+                          )}
+                          {speakingMessageId === msg.id ? (
+                            <>
+                              <VolumeX className="w-3.5 h-3.5 text-rose-500" />
+                              <span className="text-rose-500 font-medium">Stop</span>
+                              <div className="flex items-center gap-0.5 h-2.5 ml-0.5">
+                                <span
+                                  className="w-0.5 bg-rose-500 rounded-full transition-all duration-75"
+                                  style={{ height: `${Math.max(2, Math.min(8, Math.round(waveformLevel * 10)))}px` }}
+                                />
+                                <span
+                                  className="w-0.5 bg-rose-500 rounded-full transition-all duration-75"
+                                  style={{ height: `${Math.max(3, Math.min(10, Math.round(waveformLevel * 12)))}px` }}
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-3.5 h-3.5" />
+                              <span>Listen</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
+                  {/* Connect Google Account Action Card if AI asks to log in for Drive/Sheets/Calendar */}
+                  {(msg.content.toLowerCase().includes('log in') ||
+                    msg.content.toLowerCase().includes('connect your google account') ||
+                    msg.content.toLowerCase().includes('sheets') ||
+                    msg.content.toLowerCase().includes('calendar') ||
+                    msg.content.toLowerCase().includes('drive')) && (
+                    <div className="p-3.5 rounded-2xl bg-indigo-50/90 dark:bg-indigo-950/50 border border-indigo-200/80 dark:border-indigo-800/60 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                          <LogIn className="w-4.5 h-4.5" />
+                        </div>
+                        <div>
+                          <div className="text-[13px] font-semibold text-indigo-950 dark:text-indigo-100">
+                            Connect Google Workspace
+                          </div>
+                          <div className="text-[11.5px] text-indigo-700 dark:text-indigo-300">
+                            Grant agent permission to edit Google Sheets, Drive & Calendar
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            setAuthCardSuccess('Connecting...');
+                            const res = await signInWithGoogleWorkspace();
+                            setAuthCardSuccess(`Connected as ${res.user.email}`);
+                            setTimeout(() => setAuthCardSuccess(null), 4000);
+                          } catch (err: any) {
+                            setAuthCardSuccess(`Connection failed: ${err.message || 'Error'}`);
+                            setTimeout(() => setAuthCardSuccess(null), 4000);
+                          }
+                        }}
+                        className="w-full sm:w-auto px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-all active:scale-95 shadow-xs flex items-center justify-center gap-1.5 shrink-0"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>{authCardSuccess || 'Sign In with Google'}</span>
+                      </button>
+                    </div>
+                  )}
+
                   {/* Render to Canvas notification / Interactive Card */}
                   {msg.timetableData && (
-                    <div className="p-3 rounded-xl apple-liquid-glass-card border border-indigo-200/70 dark:border-white/10 shadow-xs flex items-center justify-between apple-stretcher">
+                    <div className="p-3 rounded-xl liquid-glass-card border border-indigo-200/70 dark:border-indigo-800/60 shadow-xs flex items-center justify-between punch-tap">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-                          <Calendar className="w-4 h-4" />
+                        <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                          <Zap className="w-4 h-4" />
                         </div>
                         <div>
                           <div className="text-[12.5px] font-semibold text-indigo-950 dark:text-indigo-200 leading-none">
@@ -444,14 +514,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                           </div>
                           <div className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80 mt-1 flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                            <span>Rendered to Canvas</span>
+                            <span>Live Rendered to WorkSpace</span>
                           </div>
                         </div>
                       </div>
 
                       <button
                         onClick={() => onRenderToCanvas(msg.timetableData!)}
-                        className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11.5px] font-medium shadow-xs apple-stretcher apple-puncher flex items-center gap-1"
+                        className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11.5px] font-medium shadow-xs transition-transform active:scale-95 flex items-center gap-1"
                       >
                         <Calendar className="w-3.5 h-3.5" />
                         <span>View Canvas</span>
@@ -555,52 +625,12 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       </div>
 
       {/* Floating Bottom Input Bar */}
-      <div className="p-2.5 sm:p-3 md:p-3.5 apple-liquid-glass-subtle border-t border-zinc-200/60 dark:border-white/10 shrink-0 backdrop-blur-2xl">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileSelect}
-          multiple
-          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.json"
-          className="hidden"
-        />
-
+      <div className="p-2.5 sm:p-3 md:p-3.5 bg-white/70 dark:bg-[#121318]/70 backdrop-blur-md border-t border-zinc-200/60 dark:border-zinc-800 shrink-0">
         <form
           id="chat-input-form"
           onSubmit={handleSubmit}
-          className="apple-liquid-glass-card hover:border-zinc-300 dark:hover:border-zinc-700 focus-within:border-zinc-400 dark:focus-within:border-zinc-600 focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/5 border border-zinc-200/90 dark:border-white/10 rounded-2xl p-2 sm:p-2.5 transition-all shadow-[0_4px_20px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] flex flex-col gap-1.5 sm:gap-2 relative"
+          className="bg-white dark:bg-[#181920] hover:border-zinc-300 dark:hover:border-zinc-700 focus-within:border-zinc-400 dark:focus-within:border-zinc-600 focus-within:ring-2 focus-within:ring-black/5 dark:focus-within:ring-white/5 border border-zinc-200/90 dark:border-zinc-800 rounded-2xl p-2 sm:p-2.5 transition-all shadow-[0_2px_12px_rgba(0,0,0,0.03)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] flex flex-col gap-1.5 sm:gap-2 relative"
         >
-          {/* Attachment Preview Tray */}
-          {attachments.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 px-1 pt-1 pb-2 border-b border-zinc-100 dark:border-zinc-800/80">
-              {attachments.map((att) => (
-                <div
-                  key={att.id}
-                  className="flex items-center gap-1.5 pl-2 pr-1 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-[11px] font-medium border border-zinc-200/80 dark:border-zinc-700 shadow-2xs group animate-in fade-in zoom-in-95 duration-150"
-                >
-                  {att.type === 'image' && att.dataUrl ? (
-                    <img src={att.dataUrl} alt={att.name} className="w-4 h-4 object-cover rounded" />
-                  ) : att.type === 'spreadsheet' ? (
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />
-                  ) : att.type === 'pdf' ? (
-                    <FileText className="w-3.5 h-3.5 text-rose-500" />
-                  ) : (
-                    <Paperclip className="w-3.5 h-3.5 text-indigo-500" />
-                  )}
-                  <span className="truncate max-w-[110px] font-medium">{att.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAttachment(att.id)}
-                    className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors ml-0.5"
-                    title="Remove attachment"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Top text input row */}
           <div className="flex items-center gap-2">
             <input
@@ -609,15 +639,15 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               id="chat-input-field"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={isVoiceActive ? 'Listening...' : 'Type message or command schedule...'}
+              placeholder={isVoiceActive ? 'Listening to voice...' : 'Ask anything about timetables or command schedule...'}
               className="flex-1 bg-transparent text-[13px] sm:text-[13.5px] text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none px-1"
             />
 
-            {(inputText.trim().length > 0 || attachments.length > 0) && (
+            {inputText.trim().length > 0 && (
               <button
                 type="submit"
                 id="btn-send-message"
-                className="w-7.5 h-7.5 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 flex items-center justify-center hover:bg-black dark:hover:bg-zinc-100 apple-puncher apple-stretcher shadow-xs shrink-0 cursor-pointer"
+                className="w-7 h-7 sm:w-7.5 sm:h-7.5 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors active:scale-95 shrink-0 punch-tap"
                 title="Send Message"
               >
                 <Send className="w-3.5 h-3.5" />
@@ -625,48 +655,26 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             )}
           </div>
 
-          {/* Bottom control bar with Quick Add, Media Upload, Voice Selector, and Live Voice Button */}
-          <div className="flex items-center justify-between pt-1 border-t border-zinc-100 dark:border-white/5 text-[12px] gap-1.5 flex-wrap sm:flex-nowrap">
-            {/* Left: Quick Prompts Dropdown & Upload Media Button */}
-            <div className="flex items-center gap-1 relative">
+          {/* Bottom control bar with Quick Add, Voice Selector, and Live Voice Button */}
+          <div className="flex items-center justify-between pt-1 border-t border-zinc-100 dark:border-zinc-800/80 text-[12px] gap-2 flex-wrap sm:flex-nowrap">
+            {/* Left: Quick Prompts Dropdown */}
+            <div className="relative">
               <button
                 type="button"
                 id="btn-quick-helper"
                 onClick={() => setShowHelperMenu(!showHelperMenu)}
-                className="h-7.5 px-2.5 rounded-xl flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100/80 dark:hover:bg-zinc-800/80 transition-colors font-medium text-[11px] sm:text-[11.5px] apple-stretcher apple-puncher cursor-pointer"
+                className="h-7.5 px-2 sm:px-2.5 rounded-lg flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 transition-colors font-medium text-[11px] sm:text-[11.5px] punch-tap"
                 title="Quick schedule commands"
               >
                 <Plus className="w-3.5 h-3.5 text-zinc-500" />
                 <span>Quick Prompt</span>
               </button>
 
-              <button
-                type="button"
-                id="btn-upload-media"
-                onClick={() => fileInputRef.current?.click()}
-                className="h-7.5 px-2.5 rounded-xl flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/60 border border-indigo-200/60 dark:border-indigo-800/60 transition-colors font-medium text-[11px] sm:text-[11.5px] apple-stretcher apple-puncher cursor-pointer"
-                title="Upload pictures, Excel spreadsheets, PDFs or Notes"
-              >
-                <Paperclip className="w-3.5 h-3.5 text-indigo-500" />
-                <span>Upload Media</span>
-              </button>
-
               {showHelperMenu && (
-                <div className="absolute bottom-[calc(100%+8px)] left-0 w-68 max-w-[calc(100vw-40px)] p-2 apple-liquid-glass-menu rounded-2xl shadow-2xl z-50 text-[12px] animate-apple-menu space-y-0.5">
+                <div className="absolute bottom-[calc(100%+8px)] left-0 w-64 max-w-[calc(100vw-40px)] p-1.5 bg-white/95 dark:bg-[#181920]/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-zinc-200/80 dark:border-zinc-700 z-50 text-[12px] animate-soft-punch space-y-0.5">
                   <div className="px-2.5 py-1 text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                    Quick Insertion & File Upload
+                    Quick Insertion
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowHelperMenu(false);
-                      fileInputRef.current?.click();
-                    }}
-                    className="w-full text-left px-2.5 py-2 rounded-xl text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors flex items-center gap-2 apple-stretcher apple-puncher font-semibold bg-indigo-50/40 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50"
-                  >
-                    <Paperclip className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Upload Picture, Excel, PDF or Notes</span>
-                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -674,7 +682,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                       setShowHelperMenu(false);
                       inputRef.current?.focus();
                     }}
-                    className="w-full text-left px-2.5 py-2 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 apple-stretcher apple-puncher"
+                    className="w-full text-left px-2.5 py-2 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 punch-tap"
                   >
                     <span>☕</span>
                     <span>Add Lunch / Prayer Break</span>
@@ -686,7 +694,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                       setShowHelperMenu(false);
                       inputRef.current?.focus();
                     }}
-                    className="w-full text-left px-2.5 py-2 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 apple-stretcher apple-puncher"
+                    className="w-full text-left px-2.5 py-2 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 punch-tap"
                   >
                     <span>📊</span>
                     <span>Auto-Generate BBA Sem 1</span>
@@ -698,7 +706,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                       setShowHelperMenu(false);
                       inputRef.current?.focus();
                     }}
-                    className="w-full text-left px-2.5 py-2 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 apple-stretcher apple-puncher"
+                    className="w-full text-left px-2.5 py-2 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 punch-tap"
                   >
                     <span>🛡️</span>
                     <span>Verify Zero Conflicts</span>
@@ -710,7 +718,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                       setShowHelperMenu(false);
                       inputRef.current?.focus();
                     }}
-                    className="w-full text-left px-2.5 py-2 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 apple-stretcher apple-puncher"
+                    className="w-full text-left px-2.5 py-2 rounded-xl text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 punch-tap"
                   >
                     <span>🔬</span>
                     <span>Assign Specific Room & Lab</span>
@@ -781,7 +789,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   type="button"
                   id="btn-voice-toggle"
                   onClick={toggleVoiceMode}
-                  className={`relative z-10 h-8 sm:h-8.5 px-3.5 sm:px-4 rounded-full flex items-center gap-1.5 transition-all duration-300 apple-stretcher apple-puncher apple-pill shrink-0 cursor-pointer ${
+                  className={`relative z-10 h-7.5 sm:h-8 px-3 sm:px-3.5 rounded-full flex items-center gap-1.5 transition-all duration-300 punch-tap soft-bounce shrink-0 ${
                     isOpeningAnim
                       ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white shadow-[0_0_30px_rgba(168,85,247,0.7)] ring-2 ring-purple-300 animate-pulse'
                       : isLoading || isVoiceProcessing || voiceStatus === 'fetching'
